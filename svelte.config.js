@@ -13,7 +13,14 @@ const config = {
 			return isExternalLibrary ? undefined : true;
 		}
 	},
-	kit: { adapter: adapter() }
+	kit: {
+		adapter: adapter(),
+		paths: {
+			// Set BASE_PATH=/GTD-app when building for GitHub Pages.
+			// Leave unset (empty string) for local development.
+			base: process.env.BASE_PATH ?? ''
+		}
+	}
 };
 
 export default config;

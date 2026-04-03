@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
+	import { base } from '$app/paths';
 
 	let { children } = $props();
 
@@ -14,13 +15,13 @@
 
 	onMount(() => {
 		if ('serviceWorker' in navigator) {
-			navigator.serviceWorker.register('/service-worker.js');
+			navigator.serviceWorker.register(`${base}/service-worker.js`);
 		}
 	});
 </script>
 
 <svelte:head>
-	<link rel="icon" href="/icons/icon-192.svg" />
+	<link rel="icon" href="{base}/icons/icon-192.svg" />
 </svelte:head>
 
 <div class="app">
@@ -33,10 +34,11 @@
 	<div class="layout">
 		<nav class="sidebar">
 			{#each navItems as item}
+				{@const target = `${base}${item.href}`.replace(/\/$/, '')}
 				<a
-					href={item.href}
+					href="{base}{item.href}"
 					class="nav-link"
-					class:active={$page.url.pathname === item.href}
+					class:active={$page.url.pathname.replace(/\/$/, '') === target}
 				>
 					<span class="nav-icon">{item.icon}</span>
 					<span class="nav-label">{item.label}</span>
