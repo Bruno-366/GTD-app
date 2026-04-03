@@ -6,6 +6,11 @@ export interface Task {
 	notes: string;
 	list: ListType;
 	project?: string;
+	parentId?: string;
+	context?: string;
+	delegatedTo?: string;
+	estimatedMinutes?: number;
+	dueDate?: string;
 	createdAt: number;
 	updatedAt: number;
 	completed: boolean;

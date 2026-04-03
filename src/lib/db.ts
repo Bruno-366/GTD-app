@@ -1,7 +1,7 @@
 import type { Task, Project } from './types';
 
 const DB_NAME = 'gtd-app';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const TASKS_STORE = 'tasks';
 const PROJECTS_STORE = 'projects';
 
@@ -11,17 +11,33 @@ function openDB(): Promise<IDBDatabase> {
 
 		request.onupgradeneeded = (event) => {
 			const db = (event.target as IDBOpenDBRequest).result;
+			const oldVersion = event.oldVersion;
 
-			if (!db.objectStoreNames.contains(TASKS_STORE)) {
+			if (oldVersion < 1) {
 				const taskStore = db.createObjectStore(TASKS_STORE, { keyPath: 'id' });
 				taskStore.createIndex('list', 'list', { unique: false });
 				taskStore.createIndex('project', 'project', { unique: false });
 				taskStore.createIndex('completed', 'completed', { unique: false });
-			}
 
-			if (!db.objectStoreNames.contains(PROJECTS_STORE)) {
 				const projectStore = db.createObjectStore(PROJECTS_STORE, { keyPath: 'id' });
 				projectStore.createIndex('completed', 'completed', { unique: false });
+			}
+
+			if (oldVersion < 2) {
+				const tx = (event.target as IDBOpenDBRequest).transaction!;
+				const taskStore = tx.objectStore(TASKS_STORE);
+				if (!taskStore.indexNames.contains('parentId')) {
+					taskStore.createIndex('parentId', 'parentId', { unique: false });
+				}
+				if (!taskStore.indexNames.contains('context')) {
+					taskStore.createIndex('context', 'context', { unique: false });
+				}
+				if (!taskStore.indexNames.contains('delegatedTo')) {
+					taskStore.createIndex('delegatedTo', 'delegatedTo', { unique: false });
+				}
+				if (!taskStore.indexNames.contains('dueDate')) {
+					taskStore.createIndex('dueDate', 'dueDate', { unique: false });
+				}
 			}
 		};
 
@@ -61,11 +77,41 @@ export async function getTasksByList(list: Task['list']): Promise<Task[]> {
 	});
 }
 
+export async function getSubtasks(parentId: string): Promise<Task[]> {
+	const db = await openDB();
+	return new Promise((resolve, reject) => {
+		const tx = db.transaction(TASKS_STORE, 'readonly');
+		const store = tx.objectStore(TASKS_STORE);
+		const index = store.index('parentId');
+		const request = index.getAll(parentId);
+		request.onsuccess = () => resolve(request.result as Task[]);
+		request.onerror = () => reject(request.error);
+		tx.oncomplete = () => db.close();
+	});
+}
+
+export async function getTasksWithDueDate(): Promise<Task[]> {
+	const all = await getAllTasks();
+	return all.filter((t) => !!t.dueDate && !t.completed);
+}
+
+export async function getDelegatedTasks(): Promise<Task[]> {
+	const all = await getAllTasks();
+	return all.filter((t) => !!t.delegatedTo && !t.completed);
+}
+
 export async function addTask(
 	title: string,
 	list: Task['list'],
 	notes = '',
-	project?: string
+	project?: string,
+	extra?: {
+		parentId?: string;
+		context?: string;
+		delegatedTo?: string;
+		estimatedMinutes?: number;
+		dueDate?: string;
+	}
 ): Promise<Task> {
 	const db = await openDB();
 	const task: Task = {
@@ -74,6 +120,11 @@ export async function addTask(
 		notes,
 		list,
 		project,
+		parentId: extra?.parentId,
+		context: extra?.context,
+		delegatedTo: extra?.delegatedTo,
+		estimatedMinutes: extra?.estimatedMinutes,
+		dueDate: extra?.dueDate,
 		createdAt: Date.now(),
 		updatedAt: Date.now(),
 		completed: false

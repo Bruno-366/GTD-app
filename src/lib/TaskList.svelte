@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { Task, Project } from '$lib/types';
+	import type { ListType } from '$lib/types';
 	import { addTask, updateTask, deleteTask } from '$lib/db';
+	import { parseTaskTitle } from '$lib/parseTask';
 
 	interface Props {
 		list: Task['list'];
@@ -8,37 +10,89 @@
 		icon: string;
 		tasks: Task[];
 		projects?: Project[];
+		/** Extra tasks passed in so subtasks can be found (e.g. all tasks for this list) */
+		allTasks?: Task[];
 		onTasksChange: () => void;
 	}
 
-	let { list, title, icon, tasks = $bindable([]), projects = [], onTasksChange }: Props = $props();
+	let { list, title, icon, tasks = $bindable([]), projects = [], allTasks, onTasksChange }: Props = $props();
 
 	function focusOnMount(node: HTMLElement) {
 		node.focus();
 	}
 
+	// ── new task form ─────────────────────────────────────────────────────────
 	let newTitle = $state('');
 	let newNotes = $state('');
 	let newProject = $state('');
+	let newDueDate = $state('');
+	let newEstimated = $state('');
 	let showForm = $state(false);
+
+	// ── edit form ─────────────────────────────────────────────────────────────
 	let editingTask = $state<Task | null>(null);
 	let editTitle = $state('');
 	let editNotes = $state('');
 	let editProject = $state('');
+	let editDueDate = $state('');
+	let editEstimated = $state('');
+
+	// ── subtask form ──────────────────────────────────────────────────────────
+	let addingSubtaskFor = $state<string | null>(null);
+	let subtaskTitle = $state('');
+
 	let showCompleted = $state(false);
 
-	const activeTasks = $derived(tasks.filter((t) => !t.completed));
-	const completedTasks = $derived(tasks.filter((t) => t.completed));
+	// Derive top-level (no parentId) tasks only
+	const topLevelActive = $derived(tasks.filter((t) => !t.completed && !t.parentId));
+	const topLevelCompleted = $derived(tasks.filter((t) => t.completed && !t.parentId));
+
+	/** Get all subtasks (active + completed) for a given parent from allTasks or tasks */
+	function subtasksOf(parentId: string): Task[] {
+		const pool = allTasks ?? tasks;
+		return pool.filter((t) => t.parentId === parentId);
+	}
+
+	// Live parse preview while typing in the title field
+	const parsed = $derived(parseTaskTitle(newTitle));
+
+	/** Determine list based on parsed keywords (unless list is explicitly set) */
+	function resolvedList(): ListType {
+		if (list !== 'inbox') return list; // on non-inbox pages, always use the page's list
+		if (parsed.context) return 'next';
+		if (parsed.delegatedTo) return 'waiting';
+		return 'inbox';
+	}
 
 	async function handleAdd() {
 		const trimmed = newTitle.trim();
 		if (!trimmed) return;
 
-		await addTask(trimmed, list, newNotes.trim(), newProject || undefined);
+		const { cleanTitle, context, delegatedTo, estimatedMinutes } = parseTaskTitle(trimmed);
+		const estMins = newEstimated ? parseInt(newEstimated, 10) : estimatedMinutes;
+
+		await addTask(cleanTitle, resolvedList(), newNotes.trim(), newProject || undefined, {
+			context,
+			delegatedTo,
+			estimatedMinutes: estMins || undefined,
+			dueDate: newDueDate || undefined
+		});
+
 		newTitle = '';
 		newNotes = '';
 		newProject = '';
+		newDueDate = '';
+		newEstimated = '';
 		showForm = false;
+		onTasksChange();
+	}
+
+	async function handleAddSubtask(parentTask: Task) {
+		const trimmed = subtaskTitle.trim();
+		if (!trimmed) return;
+		await addTask(trimmed, parentTask.list, '', undefined, { parentId: parentTask.id });
+		subtaskTitle = '';
+		addingSubtaskFor = null;
 		onTasksChange();
 	}
 
@@ -48,6 +102,11 @@
 	}
 
 	async function handleDelete(id: string) {
+		// Also delete subtasks
+		const subs = subtasksOf(id);
+		for (const sub of subs) {
+			await deleteTask(sub.id);
+		}
 		await deleteTask(id);
 		onTasksChange();
 	}
@@ -57,6 +116,8 @@
 		editTitle = task.title;
 		editNotes = task.notes;
 		editProject = task.project ?? '';
+		editDueDate = task.dueDate ?? '';
+		editEstimated = task.estimatedMinutes != null ? String(task.estimatedMinutes) : '';
 	}
 
 	async function handleEditSave() {
@@ -65,7 +126,9 @@
 			...editingTask,
 			title: editTitle.trim(),
 			notes: editNotes.trim(),
-			project: editProject || undefined
+			project: editProject || undefined,
+			dueDate: editDueDate || undefined,
+			estimatedMinutes: editEstimated ? parseInt(editEstimated, 10) : undefined
 		});
 		editingTask = null;
 		onTasksChange();
@@ -80,14 +143,40 @@
 			e.preventDefault();
 			handleAdd();
 		}
-		if (e.key === 'Escape') {
-			showForm = false;
-		}
+		if (e.key === 'Escape') showForm = false;
 	}
 
 	function handleEditKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') cancelEdit();
 	}
+
+	function handleSubtaskKeydown(e: KeyboardEvent, parentTask: Task) {
+		if (e.key === 'Enter' && !e.shiftKey) {
+			e.preventDefault();
+			handleAddSubtask(parentTask);
+		}
+		if (e.key === 'Escape') {
+			addingSubtaskFor = null;
+			subtaskTitle = '';
+		}
+	}
+
+	function formatMinutes(mins: number): string {
+		if (mins < 60) return `${mins}m`;
+		const h = Math.floor(mins / 60);
+		const m = mins % 60;
+		return m > 0 ? `${h}h ${m}m` : `${h}h`;
+	}
+
+	function formatDate(iso: string): string {
+		// Append noon UTC to avoid date-shifting across timezone boundaries
+		const d = new Date(iso + 'T12:00:00Z');
+		return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+	}
+
+	const inputCls = 'w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-[inherit]';
+	const btnPrimary = 'px-4 py-2 rounded-md text-sm font-medium bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-[inherit] cursor-pointer border-0';
+	const btnSecondary = 'px-4 py-2 rounded-md text-sm font-medium bg-transparent text-slate-500 border border-slate-300 transition-colors hover:bg-slate-100 font-[inherit] cursor-pointer';
 </script>
 
 <div class="bg-white rounded-xl p-6 shadow-sm">
@@ -97,42 +186,70 @@
 			<span>{icon}</span> {title}
 		</h2>
 		<span class="bg-violet-100 text-indigo-600 text-sm font-semibold px-2 py-0.5 rounded-full">
-			{activeTasks.length}
+			{topLevelActive.length}
 		</span>
 	</div>
 
-	<!-- Add / Edit form -->
+	<!-- Add task form -->
 	{#if showForm}
 		<div class="flex flex-col gap-2 mb-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
 			<input
 				type="text"
-				placeholder="Task title..."
+				placeholder="Task title… use #context, @person, ~5m"
 				bind:value={newTitle}
 				onkeydown={handleKeydown}
-				class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-[inherit]"
+				class={inputCls}
 				use:focusOnMount
 			/>
+
+			<!-- Live keyword preview -->
+			{#if parsed.context || parsed.delegatedTo || parsed.estimatedMinutes != null}
+				<div class="flex flex-wrap gap-1 text-xs">
+					{#if parsed.context}
+						<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">#{parsed.context}</span>
+					{/if}
+					{#if parsed.delegatedTo}
+						<span class="bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full">@{parsed.delegatedTo}</span>
+					{/if}
+					{#if parsed.estimatedMinutes != null}
+						<span class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">⏱ {formatMinutes(parsed.estimatedMinutes)}</span>
+					{/if}
+					{#if list === 'inbox' && (parsed.context || parsed.delegatedTo)}
+						<span class="text-slate-400 italic">→ will go to {parsed.context ? 'Next Actions' : 'Waiting For'}</span>
+					{/if}
+				</div>
+			{/if}
+
 			<textarea
 				placeholder="Notes (optional)"
 				bind:value={newNotes}
 				rows={2}
-				class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-[inherit] resize-y min-h-[60px]"
+				class="{inputCls} resize-y min-h-[60px]"
 			></textarea>
+
+			<div class="flex gap-2">
+				<div class="flex-1">
+					<label for="new-due-date" class="text-xs text-slate-500 mb-0.5 block">Due date</label>
+					<input id="new-due-date" type="date" bind:value={newDueDate} class={inputCls} />
+				</div>
+				<div class="flex-1">
+					<label for="new-estimated" class="text-xs text-slate-500 mb-0.5 block">Estimate (minutes)</label>
+					<input id="new-estimated" type="number" min="1" placeholder="e.g. 5" bind:value={newEstimated} class={inputCls} />
+				</div>
+			</div>
+
 			{#if list !== 'inbox' && projects.length > 0}
-				<select bind:value={newProject} class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-[inherit] cursor-pointer">
+				<select bind:value={newProject} class="{inputCls} cursor-pointer">
 					<option value="">No project</option>
 					{#each projects.filter((p) => !p.completed) as project}
 						<option value={project.id}>{project.title}</option>
 					{/each}
 				</select>
 			{/if}
+
 			<div class="flex gap-2">
-				<button onclick={handleAdd} disabled={!newTitle.trim()} class="px-4 py-2 rounded-md text-sm font-medium bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-[inherit] cursor-pointer border-0">
-					Add task
-				</button>
-				<button onclick={() => (showForm = false)} class="px-4 py-2 rounded-md text-sm font-medium bg-transparent text-slate-500 border border-slate-300 transition-colors hover:bg-slate-100 font-[inherit] cursor-pointer">
-					Cancel
-				</button>
+				<button onclick={handleAdd} disabled={!newTitle.trim()} class={btnPrimary}>Add task</button>
+				<button onclick={() => (showForm = false)} class={btnSecondary}>Cancel</button>
 			</div>
 		</div>
 	{:else}
@@ -143,19 +260,26 @@
 
 	<!-- Active tasks -->
 	<ul class="flex flex-col gap-1 list-none">
-		{#each activeTasks as task (task.id)}
+		{#each topLevelActive as task (task.id)}
+			{@const subs = subtasksOf(task.id)}
 			<li class="rounded-lg">
 				{#if editingTask?.id === task.id}
-					<div class="flex flex-col gap-2 mb-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
-						<input
-							type="text"
-							bind:value={editTitle}
-							onkeydown={handleEditKeydown}
-							class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-[inherit]"
-						/>
-						<textarea bind:value={editNotes} rows={2} class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-[inherit] resize-y min-h-[60px]"></textarea>
+					<!-- Edit form -->
+					<div class="flex flex-col gap-2 mb-2 p-4 bg-slate-50 rounded-lg border border-slate-200">
+						<input type="text" bind:value={editTitle} onkeydown={handleEditKeydown} class={inputCls} />
+						<textarea bind:value={editNotes} rows={2} class="{inputCls} resize-y min-h-[60px]"></textarea>
+						<div class="flex gap-2">
+							<div class="flex-1">
+								<label for="edit-due-date" class="text-xs text-slate-500 mb-0.5 block">Due date</label>
+								<input id="edit-due-date" type="date" bind:value={editDueDate} class={inputCls} />
+							</div>
+							<div class="flex-1">
+								<label for="edit-estimated" class="text-xs text-slate-500 mb-0.5 block">Estimate (minutes)</label>
+								<input id="edit-estimated" type="number" min="1" bind:value={editEstimated} class={inputCls} />
+							</div>
+						</div>
 						{#if projects.length > 0}
-							<select bind:value={editProject} class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-[inherit] cursor-pointer">
+							<select bind:value={editProject} class="{inputCls} cursor-pointer">
 								<option value="">No project</option>
 								{#each projects.filter((p) => !p.completed) as project}
 									<option value={project.id}>{project.title}</option>
@@ -163,78 +287,124 @@
 							</select>
 						{/if}
 						<div class="flex gap-2">
-							<button onclick={handleEditSave} disabled={!editTitle.trim()} class="px-4 py-2 rounded-md text-sm font-medium bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-[inherit] cursor-pointer border-0">
-								Save
-							</button>
-							<button onclick={cancelEdit} class="px-4 py-2 rounded-md text-sm font-medium bg-transparent text-slate-500 border border-slate-300 transition-colors hover:bg-slate-100 font-[inherit] cursor-pointer">
-								Cancel
-							</button>
+							<button onclick={handleEditSave} disabled={!editTitle.trim()} class={btnPrimary}>Save</button>
+							<button onclick={cancelEdit} class={btnSecondary}>Cancel</button>
 						</div>
 					</div>
 				{:else}
+					<!-- Task row -->
 					<div class="group flex items-start gap-3 px-3 py-3 rounded-lg transition-colors duration-100 hover:bg-slate-50">
 						<button
 							class="w-5 h-5 border-2 border-slate-300 rounded-full bg-transparent cursor-pointer shrink-0 flex items-center justify-center mt-0.5 transition-colors duration-150 p-0 hover:border-indigo-500"
 							onclick={() => handleToggle(task)}
 							aria-label="Mark as complete"
-						>
-							<span class="block"></span>
-						</button>
+						></button>
 						<div class="flex-1 flex flex-col gap-1 cursor-pointer min-w-0" role="button" tabindex="0" onclick={() => startEdit(task)} onkeydown={(e) => e.key === 'Enter' && startEdit(task)}>
 							<span class="text-[0.9375rem] text-slate-900 break-words">{task.title}</span>
 							{#if task.notes}
 								<span class="text-[0.8125rem] text-slate-500 break-words">{task.notes}</span>
 							{/if}
-							{#if task.project}
-								{@const proj = projects.find((p) => p.id === task.project)}
-								{#if proj}
-									<span class="text-xs text-indigo-600">📁 {proj.title}</span>
+							<!-- Badges -->
+							<div class="flex flex-wrap gap-1 mt-0.5">
+								{#if task.context}
+									<span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">#{task.context}</span>
 								{/if}
-							{/if}
+								{#if task.delegatedTo}
+									<span class="text-xs bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full">@{task.delegatedTo}</span>
+								{/if}
+								{#if task.estimatedMinutes != null}
+									<span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">⏱ {formatMinutes(task.estimatedMinutes)}</span>
+								{/if}
+								{#if task.dueDate}
+									<span class="text-xs bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full">📅 {formatDate(task.dueDate)}</span>
+								{/if}
+								{#if task.project}
+									{@const proj = projects.find((p) => p.id === task.project)}
+									{#if proj}
+										<span class="text-xs bg-violet-100 text-indigo-600 px-2 py-0.5 rounded-full">📁 {proj.title}</span>
+									{/if}
+								{/if}
+							</div>
 						</div>
 						<button
 							class="bg-transparent border-0 text-slate-300 cursor-pointer text-sm p-1 leading-none shrink-0 opacity-0 transition-[color,opacity] duration-150 group-hover:opacity-100 hover:!text-red-500"
 							onclick={() => handleDelete(task.id)}
 							aria-label="Delete task"
-						>
-							✕
-						</button>
+						>✕</button>
 					</div>
+
+					<!-- Subtasks -->
+					{#if subs.length > 0}
+						<ul class="ml-8 flex flex-col gap-0.5 list-none mb-1">
+							{#each subs as sub (sub.id)}
+								<li>
+									<div class="group flex items-center gap-2 px-3 py-2 rounded-md transition-colors duration-100 hover:bg-slate-50">
+										<button
+											class="w-4 h-4 border-2 {sub.completed ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300'} rounded-full bg-transparent cursor-pointer shrink-0 flex items-center justify-center transition-colors duration-150 p-0 text-[0.6rem] hover:border-indigo-500"
+											onclick={() => handleToggle(sub)}
+											aria-label={sub.completed ? 'Mark as incomplete' : 'Mark as complete'}
+										>{sub.completed ? '✓' : ''}</button>
+										<span class="flex-1 text-sm {sub.completed ? 'line-through text-slate-400' : 'text-slate-700'} break-words">{sub.title}</span>
+										<button
+											class="bg-transparent border-0 text-slate-300 cursor-pointer text-xs p-1 leading-none shrink-0 opacity-0 group-hover:opacity-100 hover:!text-red-500"
+											onclick={() => deleteTask(sub.id).then(onTasksChange)}
+											aria-label="Delete subtask"
+										>✕</button>
+									</div>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+
+					<!-- Add subtask inline -->
+					{#if addingSubtaskFor === task.id}
+						<div class="ml-8 flex gap-2 mb-2 items-center">
+							<input
+								type="text"
+								placeholder="Subtask…"
+								bind:value={subtaskTitle}
+								onkeydown={(e) => handleSubtaskKeydown(e, task)}
+								class="flex-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-[inherit]"
+								use:focusOnMount
+							/>
+							<button onclick={() => handleAddSubtask(task)} disabled={!subtaskTitle.trim()} class="px-3 py-1.5 rounded-md text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 border-0 cursor-pointer font-[inherit]">Add</button>
+							<button onclick={() => { addingSubtaskFor = null; subtaskTitle = ''; }} class="px-3 py-1.5 rounded-md text-sm text-slate-500 border border-slate-300 hover:bg-slate-100 cursor-pointer font-[inherit]">✕</button>
+						</div>
+					{:else}
+						<button
+							class="ml-8 mb-1 text-xs text-slate-400 hover:text-indigo-600 cursor-pointer bg-transparent border-0 font-[inherit] px-3 py-1"
+							onclick={() => { addingSubtaskFor = task.id; subtaskTitle = ''; }}
+						>+ Add subtask</button>
+					{/if}
 				{/if}
 			</li>
 		{/each}
 	</ul>
 
 	<!-- Completed tasks -->
-	{#if completedTasks.length > 0}
+	{#if topLevelCompleted.length > 0}
 		<button
 			class="mt-4 bg-transparent border-0 text-slate-500 text-sm cursor-pointer py-1 px-0 font-[inherit] hover:text-slate-900"
 			onclick={() => (showCompleted = !showCompleted)}
 		>
-			{showCompleted ? '▼' : '▶'} Completed ({completedTasks.length})
+			{showCompleted ? '▼' : '▶'} Completed ({topLevelCompleted.length})
 		</button>
 		{#if showCompleted}
 			<ul class="flex flex-col gap-1 list-none mt-2">
-				{#each completedTasks as task (task.id)}
+				{#each topLevelCompleted as task (task.id)}
 					<li class="rounded-lg">
 						<div class="group flex items-start gap-3 px-3 py-3 rounded-lg transition-colors duration-100 hover:bg-slate-50">
 							<button
 								class="w-5 h-5 border-2 border-indigo-600 rounded-full bg-indigo-600 cursor-pointer shrink-0 flex items-center justify-center mt-0.5 transition-colors duration-150 p-0 text-white text-[0.7rem]"
 								onclick={() => handleToggle(task)}
 								aria-label="Mark as incomplete"
-							>
-								<span class="block">✓</span>
-							</button>
-							<div class="flex-1 flex flex-col gap-1 min-w-0">
-								<span class="text-[0.9375rem] text-slate-400 break-words line-through">{task.title}</span>
-							</div>
+							><span class="block">✓</span></button>
+							<span class="flex-1 text-[0.9375rem] text-slate-400 break-words line-through">{task.title}</span>
 							<button
 								class="bg-transparent border-0 text-slate-300 cursor-pointer text-sm p-1 leading-none shrink-0 opacity-0 transition-[color,opacity] duration-150 group-hover:opacity-100 hover:!text-red-500"
 								onclick={() => handleDelete(task.id)}
 								aria-label="Delete task"
-							>
-								✕
-							</button>
+							>✕</button>
 						</div>
 					</li>
 				{/each}

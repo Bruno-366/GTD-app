@@ -11,7 +11,8 @@
 		{ href: '/next', label: 'Next Actions', icon: '⚡' },
 		{ href: '/projects', label: 'Projects', icon: '📁' },
 		{ href: '/waiting', label: 'Waiting For', icon: '⏳' },
-		{ href: '/someday', label: 'Someday', icon: '🌟' }
+		{ href: '/someday', label: 'Someday', icon: '🌟' },
+		{ href: '/calendar', label: 'Calendar', icon: '📅' }
 	];
 
 	onMount(() => {
