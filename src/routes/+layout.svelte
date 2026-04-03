@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { base } from '$app/paths';
+	import '../app.css';
 
 	let { children } = $props();
 
@@ -24,143 +25,29 @@
 	<link rel="icon" href="{base}/icons/icon-192.svg" />
 </svelte:head>
 
-<div class="app">
-	<header class="header">
-		<div class="header-content">
-			<h1 class="app-title">✓ GTD App</h1>
+<div class="flex flex-col min-h-screen">
+	<header class="bg-indigo-600 text-white px-6 py-4 shadow-md">
+		<div class="max-w-screen-xl mx-auto">
+			<h1 class="text-2xl font-bold tracking-tight">✓ GTD App</h1>
 		</div>
 	</header>
 
-	<div class="layout">
-		<nav class="sidebar">
+	<div class="flex flex-1 max-w-screen-xl w-full mx-auto p-6 gap-6 max-sm:flex-col max-sm:p-4 max-sm:gap-4">
+		<nav class="flex flex-col gap-1 w-48 shrink-0 max-sm:w-full max-sm:flex-row max-sm:flex-wrap">
 			{#each navItems as item}
 				{@const target = `${base}${item.href}`.replace(/\/$/, '')}
 				<a
 					href="{base}{item.href}"
-					class="nav-link"
-					class:active={$page.url.pathname.replace(/\/$/, '') === target}
+					class="flex items-center gap-3 px-4 py-3 rounded-lg no-underline text-slate-600 font-medium transition-colors duration-150 hover:bg-slate-200 hover:text-slate-900 max-sm:flex-1 max-sm:min-w-[100px] max-sm:justify-center max-sm:px-3 max-sm:py-2 {$page.url.pathname.replace(/\/$/, '') === target ? 'bg-violet-100 !text-indigo-600' : ''}"
 				>
-					<span class="nav-icon">{item.icon}</span>
-					<span class="nav-label">{item.label}</span>
+					<span class="text-[1.1rem]">{item.icon}</span>
+					<span class="max-sm:hidden">{item.label}</span>
 				</a>
 			{/each}
 		</nav>
 
-		<main class="main">
+		<main class="flex-1 min-w-0">
 			{@render children()}
 		</main>
 	</div>
 </div>
-
-<style>
-	:global(*) {
-		box-sizing: border-box;
-		margin: 0;
-		padding: 0;
-	}
-
-	:global(body) {
-		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-		background: #f8fafc;
-		color: #1e293b;
-		min-height: 100vh;
-	}
-
-	.app {
-		display: flex;
-		flex-direction: column;
-		min-height: 100vh;
-	}
-
-	.header {
-		background: #4f46e5;
-		color: white;
-		padding: 1rem 1.5rem;
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-	}
-
-	.header-content {
-		max-width: 1200px;
-		margin: 0 auto;
-	}
-
-	.app-title {
-		font-size: 1.5rem;
-		font-weight: 700;
-		letter-spacing: -0.025em;
-	}
-
-	.layout {
-		display: flex;
-		flex: 1;
-		max-width: 1200px;
-		width: 100%;
-		margin: 0 auto;
-		padding: 1.5rem;
-		gap: 1.5rem;
-	}
-
-	.sidebar {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-		width: 200px;
-		flex-shrink: 0;
-	}
-
-	.nav-link {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 0.75rem 1rem;
-		border-radius: 0.5rem;
-		text-decoration: none;
-		color: #475569;
-		font-weight: 500;
-		transition: background 0.15s, color 0.15s;
-	}
-
-	.nav-link:hover {
-		background: #e2e8f0;
-		color: #1e293b;
-	}
-
-	.nav-link.active {
-		background: #ede9fe;
-		color: #4f46e5;
-	}
-
-	.nav-icon {
-		font-size: 1.1rem;
-	}
-
-	.main {
-		flex: 1;
-		min-width: 0;
-	}
-
-	@media (max-width: 640px) {
-		.layout {
-			flex-direction: column;
-			padding: 1rem;
-			gap: 1rem;
-		}
-
-		.sidebar {
-			width: 100%;
-			flex-direction: row;
-			flex-wrap: wrap;
-		}
-
-		.nav-link {
-			flex: 1;
-			min-width: 100px;
-			justify-content: center;
-			padding: 0.5rem 0.75rem;
-		}
-
-		.nav-label {
-			display: none;
-		}
-	}
-</style>

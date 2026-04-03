@@ -76,79 +76,90 @@
 	<title>Projects — GTD App</title>
 </svelte:head>
 
-<div class="projects-view">
-	<div class="list-header">
-		<h2 class="list-title"><span>📁</span> Projects</h2>
-		<span class="task-count">{activeProjects.length}</span>
+<div class="bg-white rounded-xl p-6 shadow-sm">
+	<!-- Header -->
+	<div class="flex items-center justify-between mb-5">
+		<h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+			<span>📁</span> Projects
+		</h2>
+		<span class="bg-violet-100 text-indigo-600 text-sm font-semibold px-2 py-0.5 rounded-full">
+			{activeProjects.length}
+		</span>
 	</div>
 
+	<!-- Add form -->
 	{#if showForm}
-		<div class="add-form">
+		<div class="flex flex-col gap-2 mb-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
 			<input
 				type="text"
 				placeholder="Project name..."
 				bind:value={newTitle}
 				onkeydown={handleKeydown}
-				class="input"
+				class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-[inherit]"
 				use:focusOnMount
 			/>
 			<textarea
 				placeholder="Notes (optional)"
 				bind:value={newNotes}
 				rows={2}
-				class="input textarea"
+				class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-[inherit] resize-y min-h-[60px]"
 			></textarea>
-			<div class="form-actions">
-				<button onclick={handleAdd} class="btn btn-primary" disabled={!newTitle.trim()}>
+			<div class="flex gap-2">
+				<button onclick={handleAdd} disabled={!newTitle.trim()} class="px-4 py-2 rounded-md text-sm font-medium bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-[inherit] cursor-pointer border-0">
 					Add project
 				</button>
-				<button onclick={() => (showForm = false)} class="btn btn-ghost">Cancel</button>
+				<button onclick={() => (showForm = false)} class="px-4 py-2 rounded-md text-sm font-medium bg-transparent text-slate-500 border border-slate-300 transition-colors hover:bg-slate-100 font-[inherit] cursor-pointer">
+					Cancel
+				</button>
 			</div>
 		</div>
 	{:else}
-		<button onclick={() => (showForm = true)} class="add-btn">
+		<button onclick={() => (showForm = true)} class="flex items-center gap-2 px-3 py-2 border-2 border-dashed border-slate-300 rounded-md bg-transparent text-slate-400 text-sm cursor-pointer w-full transition-all duration-150 font-[inherit] mb-4 hover:border-indigo-500 hover:text-indigo-600 hover:bg-violet-50">
 			<span>+</span> Add project
 		</button>
 	{/if}
 
-	<ul class="project-list">
+	<!-- Active projects -->
+	<ul class="flex flex-col gap-1 list-none">
 		{#each activeProjects as project (project.id)}
-			<li class="project-item">
+			<li class="rounded-lg">
 				{#if editingProject?.id === project.id}
-					<div class="edit-form">
-						<input type="text" bind:value={editTitle} class="input" />
-						<textarea bind:value={editNotes} rows={2} class="input textarea"></textarea>
-						<div class="form-actions">
-							<button onclick={handleEditSave} class="btn btn-primary" disabled={!editTitle.trim()}>
+					<div class="flex flex-col gap-2 mb-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+						<input type="text" bind:value={editTitle} class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-[inherit]" />
+						<textarea bind:value={editNotes} rows={2} class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-[inherit] resize-y min-h-[60px]"></textarea>
+						<div class="flex gap-2">
+							<button onclick={handleEditSave} disabled={!editTitle.trim()} class="px-4 py-2 rounded-md text-sm font-medium bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-[inherit] cursor-pointer border-0">
 								Save
 							</button>
-							<button onclick={() => (editingProject = null)} class="btn btn-ghost">Cancel</button>
+							<button onclick={() => (editingProject = null)} class="px-4 py-2 rounded-md text-sm font-medium bg-transparent text-slate-500 border border-slate-300 transition-colors hover:bg-slate-100 font-[inherit] cursor-pointer">
+								Cancel
+							</button>
 						</div>
 					</div>
 				{:else}
-					<div class="project-row">
+					<div class="group flex items-start gap-3 px-3 py-3 rounded-lg transition-colors duration-100 hover:bg-slate-50">
 						<button
-							class="checkbox"
+							class="w-5 h-5 border-2 border-slate-300 rounded bg-transparent cursor-pointer shrink-0 flex items-center justify-center mt-0.5 transition-colors duration-150 p-0 text-[0.7rem] hover:border-indigo-500"
 							onclick={() => handleToggle(project)}
 							aria-label="Mark as complete"
 						></button>
 						<div
-							class="project-content"
+							class="flex-1 flex flex-col gap-1 cursor-pointer min-w-0"
 							role="button"
 							tabindex="0"
 							onclick={() => startEdit(project)}
 							onkeydown={(e) => e.key === 'Enter' && startEdit(project)}
 						>
-							<span class="project-title">{project.title}</span>
+							<span class="text-[0.9375rem] font-semibold text-slate-900">{project.title}</span>
 							{#if project.notes}
-								<span class="project-notes">{project.notes}</span>
+								<span class="text-[0.8125rem] text-slate-500">{project.notes}</span>
 							{/if}
 							{#if projectTaskCount(project.id) > 0}
-								<span class="project-tasks">⚡ {projectTaskCount(project.id)} next action{projectTaskCount(project.id) !== 1 ? 's' : ''}</span>
+								<span class="text-xs text-indigo-600">⚡ {projectTaskCount(project.id)} next action{projectTaskCount(project.id) !== 1 ? 's' : ''}</span>
 							{/if}
 						</div>
 						<button
-							class="delete-btn"
+							class="bg-transparent border-0 text-slate-300 cursor-pointer text-sm p-1 leading-none shrink-0 opacity-0 transition-[color,opacity] duration-150 group-hover:opacity-100 hover:!text-red-500"
 							onclick={() => handleDelete(project.id)}
 							aria-label="Delete project"
 						>✕</button>
@@ -158,25 +169,26 @@
 		{/each}
 	</ul>
 
+	<!-- Completed projects -->
 	{#if completedProjects.length > 0}
-		<button class="completed-toggle" onclick={() => (showCompleted = !showCompleted)}>
+		<button class="mt-4 bg-transparent border-0 text-slate-500 text-sm cursor-pointer py-1 px-0 font-[inherit] hover:text-slate-900" onclick={() => (showCompleted = !showCompleted)}>
 			{showCompleted ? '▼' : '▶'} Completed ({completedProjects.length})
 		</button>
 		{#if showCompleted}
-			<ul class="project-list completed-list">
+			<ul class="flex flex-col gap-1 list-none mt-2">
 				{#each completedProjects as project (project.id)}
-					<li class="project-item completed">
-						<div class="project-row">
+					<li class="rounded-lg">
+						<div class="group flex items-start gap-3 px-3 py-3 rounded-lg transition-colors duration-100 hover:bg-slate-50">
 							<button
-								class="checkbox checked"
+								class="w-5 h-5 border-2 border-indigo-600 rounded bg-indigo-600 cursor-pointer shrink-0 flex items-center justify-center mt-0.5 transition-colors duration-150 p-0 text-white text-[0.7rem]"
 								onclick={() => handleToggle(project)}
 								aria-label="Mark as incomplete"
 							>✓</button>
-							<div class="project-content">
-								<span class="project-title">{project.title}</span>
+							<div class="flex-1 flex flex-col gap-1 min-w-0">
+								<span class="text-[0.9375rem] font-semibold text-slate-400 line-through">{project.title}</span>
 							</div>
 							<button
-								class="delete-btn"
+								class="bg-transparent border-0 text-slate-300 cursor-pointer text-sm p-1 leading-none shrink-0 opacity-0 transition-[color,opacity] duration-150 group-hover:opacity-100 hover:!text-red-500"
 								onclick={() => handleDelete(project.id)}
 								aria-label="Delete project"
 							>✕</button>
@@ -187,254 +199,3 @@
 		{/if}
 	{/if}
 </div>
-
-<style>
-	.projects-view {
-		background: white;
-		border-radius: 0.75rem;
-		padding: 1.5rem;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-	}
-
-	.list-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin-bottom: 1.25rem;
-	}
-
-	.list-title {
-		font-size: 1.25rem;
-		font-weight: 700;
-		color: #1e293b;
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.task-count {
-		background: #ede9fe;
-		color: #4f46e5;
-		font-size: 0.875rem;
-		font-weight: 600;
-		padding: 0.125rem 0.5rem;
-		border-radius: 9999px;
-	}
-
-	.add-form,
-	.edit-form {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		margin-bottom: 1rem;
-		padding: 1rem;
-		background: #f8fafc;
-		border-radius: 0.5rem;
-		border: 1px solid #e2e8f0;
-	}
-
-	.input {
-		width: 100%;
-		padding: 0.5rem 0.75rem;
-		border: 1px solid #cbd5e1;
-		border-radius: 0.375rem;
-		font-size: 0.875rem;
-		outline: none;
-		font-family: inherit;
-		background: white;
-	}
-
-	.input:focus {
-		border-color: #4f46e5;
-		box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
-	}
-
-	.textarea {
-		resize: vertical;
-		min-height: 60px;
-	}
-
-	.form-actions {
-		display: flex;
-		gap: 0.5rem;
-	}
-
-	.btn {
-		padding: 0.5rem 1rem;
-		border-radius: 0.375rem;
-		font-size: 0.875rem;
-		font-weight: 500;
-		cursor: pointer;
-		border: none;
-		transition: background 0.15s;
-		font-family: inherit;
-	}
-
-	.btn-primary {
-		background: #4f46e5;
-		color: white;
-	}
-
-	.btn-primary:hover:not(:disabled) {
-		background: #4338ca;
-	}
-
-	.btn-primary:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.btn-ghost {
-		background: transparent;
-		color: #64748b;
-		border: 1px solid #cbd5e1;
-	}
-
-	.btn-ghost:hover {
-		background: #f1f5f9;
-	}
-
-	.add-btn {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem 0.75rem;
-		border: 1.5px dashed #cbd5e1;
-		border-radius: 0.375rem;
-		background: transparent;
-		color: #94a3b8;
-		font-size: 0.875rem;
-		cursor: pointer;
-		width: 100%;
-		transition: all 0.15s;
-		font-family: inherit;
-		margin-bottom: 1rem;
-	}
-
-	.add-btn:hover {
-		border-color: #4f46e5;
-		color: #4f46e5;
-		background: #f5f3ff;
-	}
-
-	.project-list {
-		list-style: none;
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-
-	.project-item {
-		border-radius: 0.5rem;
-	}
-
-	.project-row {
-		display: flex;
-		align-items: flex-start;
-		gap: 0.75rem;
-		padding: 0.75rem;
-		border-radius: 0.5rem;
-		transition: background 0.1s;
-	}
-
-	.project-row:hover {
-		background: #f8fafc;
-	}
-
-	.project-item.completed .project-title {
-		text-decoration: line-through;
-		color: #94a3b8;
-	}
-
-	.checkbox {
-		width: 1.25rem;
-		height: 1.25rem;
-		border: 2px solid #cbd5e1;
-		border-radius: 0.25rem;
-		background: transparent;
-		cursor: pointer;
-		flex-shrink: 0;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		margin-top: 0.125rem;
-		transition: border-color 0.15s, background 0.15s;
-		padding: 0;
-		font-size: 0.7rem;
-	}
-
-	.checkbox:hover {
-		border-color: #4f46e5;
-	}
-
-	.checkbox.checked {
-		background: #4f46e5;
-		border-color: #4f46e5;
-		color: white;
-	}
-
-	.project-content {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-		cursor: pointer;
-		min-width: 0;
-	}
-
-	.project-title {
-		font-size: 0.9375rem;
-		font-weight: 600;
-		color: #1e293b;
-	}
-
-	.project-notes {
-		font-size: 0.8125rem;
-		color: #64748b;
-	}
-
-	.project-tasks {
-		font-size: 0.75rem;
-		color: #4f46e5;
-	}
-
-	.delete-btn {
-		background: transparent;
-		border: none;
-		color: #cbd5e1;
-		cursor: pointer;
-		font-size: 0.875rem;
-		padding: 0.25rem;
-		line-height: 1;
-		opacity: 0;
-		transition: color 0.15s, opacity 0.15s;
-		flex-shrink: 0;
-	}
-
-	.project-row:hover .delete-btn {
-		opacity: 1;
-	}
-
-	.delete-btn:hover {
-		color: #ef4444;
-	}
-
-	.completed-toggle {
-		margin-top: 1rem;
-		background: transparent;
-		border: none;
-		color: #64748b;
-		font-size: 0.875rem;
-		cursor: pointer;
-		padding: 0.25rem 0;
-		font-family: inherit;
-	}
-
-	.completed-toggle:hover {
-		color: #1e293b;
-	}
-
-	.completed-list {
-		margin-top: 0.5rem;
-	}
-</style>
