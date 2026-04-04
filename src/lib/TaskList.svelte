@@ -327,7 +327,7 @@
 							onclick={() => handleToggle(task)}
 							aria-label="Mark as complete"
 						></button>
-						<div class="flex-1 flex flex-col gap-1 cursor-pointer min-w-0" role="button" tabindex="0" onclick={() => startEdit(task)} onkeydown={(e) => e.key === 'Enter' && startEdit(task)}>
+						<div class="flex-1 flex flex-col gap-1 cursor-pointer min-w-0" role="button" tabindex="0" onclick={() => startEdit(task)} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && startEdit(task)}>
 							<span class="text-[0.9375rem] text-slate-900 break-words">{task.title}</span>
 							{#if task.notes}
 								<span class="text-[0.8125rem] text-slate-500 break-words">{task.notes}</span>
@@ -400,7 +400,7 @@
 												onclick={() => handleToggle(sub)}
 												aria-label={sub.completed ? 'Mark as incomplete' : 'Mark as complete'}
 											>{sub.completed ? '✓' : ''}</button>
-											<div class="flex-1 flex flex-col gap-0.5 cursor-pointer min-w-0" role="button" tabindex="0" onclick={() => startEdit(sub)} onkeydown={(e) => e.key === 'Enter' && startEdit(sub)}>
+											<div class="flex-1 flex flex-col gap-0.5 cursor-pointer min-w-0" role="button" tabindex="0" onclick={() => startEdit(sub)} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && startEdit(sub)}>
 												<span class="text-sm {sub.completed ? 'line-through text-slate-400' : 'text-slate-700'} break-words">{sub.title}</span>
 												<!-- Subtask badges -->
 												{#if sub.context || sub.delegatedTo || sub.estimatedMinutes != null || sub.dueDate}
