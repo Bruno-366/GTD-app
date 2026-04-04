@@ -5,18 +5,24 @@
 	import QuickWinBanner from '$lib/QuickWinBanner.svelte';
 	import { getAllTasks } from '$lib/db';
 	import { isQuickWin } from '$lib/filters';
-	import { taskRefreshTick } from '$lib/stores';
+	import { taskRefreshTick, notifyTaskChange } from '$lib/stores';
 	import type { Task } from '$lib/types';
 
 	let { children } = $props();
 	let quickWinTasks = $state<Task[]>([]);
 
+	// Sequence counter to guard against out-of-order async responses
+	let bannerLoadSeq = 0;
+
 	async function loadBanner() {
+		const seq = ++bannerLoadSeq;
 		const all = await getAllTasks();
+		// Discard if a newer load has already started
+		if (seq !== bannerLoadSeq) return;
 		quickWinTasks = all.filter(isQuickWin);
 	}
 
-	// Reload banner whenever tasks change anywhere in the app
+	// Reload banner whenever tasks change anywhere in the app (including banner interactions)
 	$effect(() => {
 		$taskRefreshTick;
 		loadBanner();
@@ -60,7 +66,7 @@
 		</nav>
 
 		<main class="flex-1 min-w-0">
-			<QuickWinBanner tasks={quickWinTasks} onTasksChange={loadBanner} />
+			<QuickWinBanner tasks={quickWinTasks} onTasksChange={notifyTaskChange} />
 			{@render children()}
 		</main>
 	</div>
