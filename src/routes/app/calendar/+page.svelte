@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { getTasksWithDueDate, updateTask, deleteTask } from '$lib/db';
+	import { notifyTaskChange } from '$lib/stores';
 	import type { Task } from '$lib/types';
 
 	let tasks = $state<Task[]>([]);
@@ -9,6 +10,7 @@
 		const raw = await getTasksWithDueDate();
 		// Sort ascending by dueDate
 		tasks = raw.sort((a, b) => (a.dueDate! < b.dueDate! ? -1 : 1));
+		notifyTaskChange();
 	}
 
 	onMount(load);

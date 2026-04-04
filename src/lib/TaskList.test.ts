@@ -80,14 +80,16 @@ describe('TaskList', () => {
 		const tasks = [makeTask({ context: 'work' })];
 		render(TaskList, { props: { title: 'Next', icon: '⚡', tasks, onTasksChange: vi.fn() } });
 
-		expect(screen.getByText('#work')).toBeInTheDocument();
+		// The context appears both as a filter chip and as a task badge; assert at least one is present
+		expect(screen.getAllByText('#work').length).toBeGreaterThanOrEqual(1);
 	});
 
 	it('renders delegatedTo badge for a waiting task', () => {
 		const tasks = [makeTask({ delegatedTo: 'alice' })];
 		render(TaskList, { props: { title: 'Waiting', icon: '⏳', tasks, onTasksChange: vi.fn() } });
 
-		expect(screen.getByText('@alice')).toBeInTheDocument();
+		// The assignee appears both as a filter chip and as a task badge; assert at least one is present
+		expect(screen.getAllByText('@alice').length).toBeGreaterThanOrEqual(1);
 	});
 
 	it('shows the "Add task" button when no form is open', () => {
@@ -111,5 +113,86 @@ describe('TaskList', () => {
 		render(TaskList, { props: { title: 'Inbox', icon: '📥', tasks, onTasksChange: vi.fn() } });
 
 		expect(screen.getByText(/Completed \(1\)/)).toBeInTheDocument();
+	});
+
+	it('shows context filter chips when tasks have different contexts', () => {
+		const tasks = [
+			makeTask({ id: 'a', title: 'Task A', context: 'work' }),
+			makeTask({ id: 'b', title: 'Task B', context: 'home' })
+		];
+		render(TaskList, { props: { title: 'Next', icon: '⚡', tasks, onTasksChange: vi.fn() } });
+
+		expect(screen.getByRole('button', { name: /^#work$/ })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /^#home$/ })).toBeInTheDocument();
+	});
+
+	it('filter chip for context has aria-pressed=false when not active', () => {
+		const tasks = [
+			makeTask({ id: 'a', title: 'Task A', context: 'work' }),
+			makeTask({ id: 'b', title: 'Task B', context: 'home' })
+		];
+		render(TaskList, { props: { title: 'Next', icon: '⚡', tasks, onTasksChange: vi.fn() } });
+
+		const workChip = screen.getByRole('button', { name: /^#work$/ });
+		expect(workChip).toHaveAttribute('aria-pressed', 'false');
+	});
+
+	it('clicking a context chip narrows the visible tasks', async () => {
+		const user = userEvent.setup();
+		const tasks = [
+			makeTask({ id: 'a', title: 'Work task', context: 'work' }),
+			makeTask({ id: 'b', title: 'Home task', context: 'home' })
+		];
+		render(TaskList, { props: { title: 'Next', icon: '⚡', tasks, onTasksChange: vi.fn() } });
+
+		await user.click(screen.getByRole('button', { name: /^#work$/ }));
+
+		expect(screen.getByText('Work task')).toBeInTheDocument();
+		expect(screen.queryByText('Home task')).not.toBeInTheDocument();
+	});
+
+	it('clicking the All chip after filtering shows all tasks again', async () => {
+		const user = userEvent.setup();
+		const tasks = [
+			makeTask({ id: 'a', title: 'Work task', context: 'work' }),
+			makeTask({ id: 'b', title: 'Home task', context: 'home' })
+		];
+		render(TaskList, { props: { title: 'Next', icon: '⚡', tasks, onTasksChange: vi.fn() } });
+
+		// Select #work
+		await user.click(screen.getByRole('button', { name: /^#work$/ }));
+		expect(screen.queryByText('Home task')).not.toBeInTheDocument();
+
+		// Click "All" to clear the filter — there are two "All" buttons (context + assignee), pick the first
+		const allButtons = screen.getAllByRole('button', { name: /^All$/ });
+		await user.click(allButtons[0]);
+
+		expect(screen.getByText('Work task')).toBeInTheDocument();
+		expect(screen.getByText('Home task')).toBeInTheDocument();
+	});
+
+	it('shows assignee filter chips when tasks have different assignees', () => {
+		const tasks = [
+			makeTask({ id: 'a', title: 'Task A', delegatedTo: 'alice' }),
+			makeTask({ id: 'b', title: 'Task B', delegatedTo: 'bob' })
+		];
+		render(TaskList, { props: { title: 'Waiting', icon: '⏳', tasks, onTasksChange: vi.fn() } });
+
+		expect(screen.getByRole('button', { name: /^@alice$/ })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: /^@bob$/ })).toBeInTheDocument();
+	});
+
+	it('clicking an assignee chip narrows the visible tasks', async () => {
+		const user = userEvent.setup();
+		const tasks = [
+			makeTask({ id: 'a', title: 'Alice task', delegatedTo: 'alice' }),
+			makeTask({ id: 'b', title: 'Bob task', delegatedTo: 'bob' })
+		];
+		render(TaskList, { props: { title: 'Waiting', icon: '⏳', tasks, onTasksChange: vi.fn() } });
+
+		await user.click(screen.getByRole('button', { name: /^@alice$/ }));
+
+		expect(screen.getByText('Alice task')).toBeInTheDocument();
+		expect(screen.queryByText('Bob task')).not.toBeInTheDocument();
 	});
 });

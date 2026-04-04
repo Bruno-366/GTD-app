@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import TaskList from '$lib/TaskList.svelte';
-	import QuickWinBanner from '$lib/QuickWinBanner.svelte';
 	import { getAllTasks } from '$lib/db';
-	import { isInbox, isQuickWin } from '$lib/filters';
+	import { isInbox } from '$lib/filters';
+	import { notifyTaskChange } from '$lib/stores';
 	import type { Task } from '$lib/types';
 
 	let tasks = $state<Task[]>([]);
-	let quickWinTasks = $state<Task[]>([]);
 	let allTasks = $state<Task[]>([]);
 
 	async function loadTasks() {
@@ -21,8 +20,8 @@
 			(t) => parentIdsNeeded.has(t.id) && !inboxFilteredIds.has(t.id)
 		);
 		tasks = [...inboxFiltered, ...extraParents];
-		quickWinTasks = all.filter(isQuickWin);
 		allTasks = all;
+		notifyTaskChange();
 	}
 
 	onMount(loadTasks);
@@ -31,8 +30,6 @@
 <svelte:head>
 	<title>Inbox — GTD App</title>
 </svelte:head>
-
-<QuickWinBanner tasks={quickWinTasks} onTasksChange={loadTasks} />
 
 <TaskList
 	title="Inbox"
