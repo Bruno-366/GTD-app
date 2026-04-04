@@ -282,7 +282,7 @@
 		<div class="flex flex-col gap-2 mb-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
 			<input
 				type="text"
-				aria-label="Task title"
+				aria-label="New task title"
 				placeholder="Task title… use #context, @person, ~5m"
 				bind:value={newTitle}
 				onkeydown={handleKeydown}
@@ -309,7 +309,7 @@
 			{/if}
 
 			<textarea
-				aria-label="Notes"
+				aria-label="New task notes"
 				placeholder="Notes (optional)"
 				bind:value={newNotes}
 				rows={2}
@@ -349,8 +349,8 @@
 			{#if editingTask?.id === task.id}
 				<!-- Unified edit form — same fields for tasks at any depth -->
 				<div class="flex flex-col gap-2 mb-2 p-4 bg-slate-50 rounded-lg border border-slate-200">
-					<input type="text" aria-label="Task title" bind:value={editTitle} onkeydown={handleEditKeydown} class={inputCls} />
-					<textarea aria-label="Notes" bind:value={editNotes} rows={2} class="{inputCls} resize-y min-h-[60px]"></textarea>
+					<input type="text" aria-label="Edit task title" bind:value={editTitle} onkeydown={handleEditKeydown} class={inputCls} />
+					<textarea aria-label="Edit task notes" bind:value={editNotes} rows={2} class="{inputCls} resize-y min-h-[60px]"></textarea>
 					<div class="flex gap-2">
 						<div class="flex-1">
 							<label for="edit-context" class="text-xs text-slate-500 mb-0.5 block">Context</label>
@@ -400,7 +400,7 @@
 						onclick={() => handleToggle(task)}
 						aria-label={task.completed ? 'Mark as incomplete' : 'Mark as complete'}
 					>{task.completed ? '✓' : ''}</button>
-					<div class="flex-1 flex flex-col gap-1 cursor-pointer min-w-0" role="button" tabindex="0" aria-label="Edit task: {task.title}" onclick={() => startEdit(task)} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && startEdit(task)}>
+					<button type="button" class="flex-1 flex flex-col gap-1 text-left min-w-0 bg-transparent border-0 p-0 cursor-pointer font-[inherit]" aria-label="Edit task: {task.title}" onclick={() => startEdit(task)}>
 						<span class="text-[0.9375rem] {task.completed ? 'line-through text-slate-400' : 'text-slate-900'} break-words">{task.title}</span>
 						{#if task.notes}
 							<span class="text-[0.8125rem] text-slate-500 break-words">{task.notes}</span>
@@ -423,7 +423,7 @@
 								<span class="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">🌟 Someday</span>
 							{/if}
 						</div>
-					</div>
+					</button>
 					<button
 						class="bg-transparent border-0 text-slate-300 cursor-pointer text-sm p-1 leading-none shrink-0 opacity-0 transition-[color,opacity] duration-150 group-hover:opacity-100 hover:!text-red-500"
 						onclick={() => handleDelete(task.id)}

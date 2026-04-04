@@ -248,7 +248,7 @@ describe('TaskList', () => {
 
 		await user.click(screen.getByRole('button', { name: /Add task/i }));
 
-		expect(screen.getByRole('textbox', { name: /task title/i })).toBeInTheDocument();
+		expect(screen.getByRole('textbox', { name: /new task title/i })).toBeInTheDocument();
 	});
 
 	it('notes textarea in add form has an accessible label', async () => {
@@ -257,7 +257,7 @@ describe('TaskList', () => {
 
 		await user.click(screen.getByRole('button', { name: /Add task/i }));
 
-		expect(screen.getByRole('textbox', { name: /^notes$/i })).toBeInTheDocument();
+		expect(screen.getByRole('textbox', { name: /new task notes/i })).toBeInTheDocument();
 	});
 
 	it('task row has an accessible edit button', () => {
