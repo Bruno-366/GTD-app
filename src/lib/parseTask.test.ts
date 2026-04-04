@@ -37,10 +37,16 @@ describe('parseTaskTitle', () => {
 			expect(result.delegatedTo).toBe('alice');
 		});
 
-		it("extracts a person name containing apostrophes and hyphens", () => {
-			const result = parseTaskTitle("Remind @john-doe about meeting");
+		it('extracts a person name containing a hyphen', () => {
+			const result = parseTaskTitle('Remind @john-doe about meeting');
 			expect(result.delegatedTo).toBe('john-doe');
 			expect(result.cleanTitle).toBe('Remind about meeting');
+		});
+
+		it("extracts a person name containing an apostrophe", () => {
+			const result = parseTaskTitle("Follow up @o'brien");
+			expect(result.delegatedTo).toBe("o'brien");
+			expect(result.cleanTitle).toBe('Follow up');
 		});
 
 		it('only extracts the first @person', () => {
