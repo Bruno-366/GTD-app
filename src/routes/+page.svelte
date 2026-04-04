@@ -41,6 +41,11 @@
 			icon: '📴',
 			title: 'Works Offline',
 			description: 'Built as a Progressive Web App with a local IndexedDB store. Your tasks are yours — no account required.'
+		},
+		{
+			icon: '♿',
+			title: 'Accessible',
+			description: 'Built to WAI-ARIA standards — labelled landmarks, keyboard navigation, and screen-reader-friendly controls throughout.'
 		}
 	];
 </script>
@@ -116,7 +121,7 @@
 			<h2 class="text-3xl font-extrabold text-slate-900 mb-3">Everything the GTD method needs</h2>
 			<p class="text-slate-500 text-lg max-w-xl mx-auto">All the views and workflows from David Allen's <em>Getting Things Done</em> — in a fast, focused app.</p>
 		</div>
-		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
 			{#each features as feature}
 				<div class="flex flex-col gap-3 p-6 rounded-2xl border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all duration-200 bg-slate-50/50">
 					<span class="text-3xl">{feature.icon}</span>
