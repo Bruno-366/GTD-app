@@ -34,8 +34,8 @@ describe('isInbox', () => {
 		expect(isInbox(makeTask({ completed: true }))).toBe(false);
 	});
 
-	it('returns false when task is a subtask (even if recent)', () => {
-		expect(isInbox(makeTask({ parentId: 'parent-1' }))).toBe(false);
+	it('returns true when task is a recent subtask', () => {
+		expect(isInbox(makeTask({ parentId: 'parent-1' }))).toBe(true);
 	});
 
 	it('returns false when an old task has a context', () => {
@@ -162,9 +162,13 @@ describe('hasDueDate', () => {
 });
 
 describe('isQuickWin', () => {
-	it('returns true for an active top-level task with ≤ 2 min estimate and no context/delegation', () => {
+	it('returns true for an active leaf task with ≤ 2 min estimate and no context/delegation', () => {
 		expect(isQuickWin(makeTask({ estimatedMinutes: 1 }))).toBe(true);
 		expect(isQuickWin(makeTask({ estimatedMinutes: 2 }))).toBe(true);
+	});
+
+	it('returns true for a leaf subtask with ≤ 2 min estimate (subtasks qualify as leaf)', () => {
+		expect(isQuickWin(makeTask({ estimatedMinutes: 1, parentId: 'parent-1' }))).toBe(true);
 	});
 
 	it('returns false when estimatedMinutes > 2', () => {
@@ -187,7 +191,7 @@ describe('isQuickWin', () => {
 		expect(isQuickWin(makeTask({ estimatedMinutes: 1, delegatedTo: 'alice' }))).toBe(false);
 	});
 
-	it('returns false when task is a subtask', () => {
-		expect(isQuickWin(makeTask({ estimatedMinutes: 1, parentId: 'parent-1' }))).toBe(false);
+	it('returns false when task is a project (has children)', () => {
+		expect(isQuickWin(makeTask({ estimatedMinutes: 1, children: ['child-1'] }))).toBe(false);
 	});
 });

@@ -78,7 +78,7 @@ function generateId(): string {
 
 export async function getAllTasks(): Promise<Task[]> {
 	const db = await openDB();
-	return new Promise((resolve, reject) => {
+	const raw = await new Promise<Task[]>((resolve, reject) => {
 		const tx = db.transaction(TASKS_STORE, 'readonly');
 		const store = tx.objectStore(TASKS_STORE);
 		const request = store.getAll();
@@ -86,6 +86,16 @@ export async function getAllTasks(): Promise<Task[]> {
 		request.onerror = () => reject(request.error);
 		tx.oncomplete = () => db.close();
 	});
+	// Compute children arrays from parentId relationships (not stored in DB)
+	const childrenMap = new Map<string, string[]>();
+	for (const t of raw) {
+		if (t.parentId) {
+			const arr = childrenMap.get(t.parentId) ?? [];
+			arr.push(t.id);
+			childrenMap.set(t.parentId, arr);
+		}
+	}
+	return raw.map((t) => ({ ...t, children: childrenMap.get(t.id) ?? [] }));
 }
 
 /** Unprocessed tasks: no context, no delegation, no due date, not someday, not a subtask */
@@ -187,7 +197,9 @@ export async function addTask(
 
 export async function updateTask(task: Task): Promise<Task> {
 	const db = await openDB();
-	const updated: Task = { ...task, updatedAt: Date.now() };
+	// Strip the computed `children` field — it is never persisted
+	const { children: _children, ...taskData } = task;
+	const updated: Task = { ...taskData, updatedAt: Date.now() };
 	return new Promise((resolve, reject) => {
 		const tx = db.transaction(TASKS_STORE, 'readwrite');
 		const store = tx.objectStore(TASKS_STORE);
@@ -207,6 +219,30 @@ export async function deleteTask(id: string): Promise<void> {
 		request.onsuccess = () => resolve();
 		request.onerror = () => reject(request.error);
 		tx.oncomplete = () => db.close();
+	});
+}
+
+/**
+ * Delete a task and promote all its direct children to top-level in a single transaction.
+ * This replaces the previous loop of individual `updateTask` + `deleteTask` calls.
+ */
+export async function deleteTaskAndPromoteChildren(id: string): Promise<void> {
+	const db = await openDB();
+	return new Promise((resolve, reject) => {
+		const tx = db.transaction(TASKS_STORE, 'readwrite');
+		const store = tx.objectStore(TASKS_STORE);
+		const index = store.index('parentId');
+		const childReq = index.getAll(id);
+		childReq.onsuccess = () => {
+			const children = childReq.result as Task[];
+			for (const child of children) {
+				const { parentId: _parentId, children: _children, ...childData } = child as Task & { children?: string[] };
+				store.put({ ...childData, updatedAt: Date.now() });
+			}
+			store.delete(id);
+		};
+		tx.oncomplete = () => { db.close(); resolve(); };
+		tx.onerror = () => { db.close(); reject(tx.error); };
 	});
 }
 

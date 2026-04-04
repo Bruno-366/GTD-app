@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types';
-	import { addTask, updateTask, deleteTask } from '$lib/db';
+	import { addTask, updateTask, deleteTask, deleteTaskAndPromoteChildren } from '$lib/db';
 	import { parseTaskTitle } from '$lib/parseTask';
 
 	interface Props {
@@ -107,12 +107,8 @@
 	}
 
 	async function handleDelete(id: string) {
-		// Promote subtasks to top-level instead of cascade-deleting them
-		const subs = subtasksOf(id);
-		for (const sub of subs) {
-			await updateTask({ ...sub, parentId: undefined });
-		}
-		await deleteTask(id);
+		// Promote children to top-level in a single DB transaction
+		await deleteTaskAndPromoteChildren(id);
 		onTasksChange();
 	}
 

@@ -3,13 +3,15 @@ import type { Task } from './types';
 const INBOX_RECENCY_MS = 10 * 60 * 1000; // 10 minutes
 
 /**
- * Inbox tasks: either fully unprocessed (no context, no delegation, no due date, not someday),
- * OR created within the last 10 minutes (so newly captured tasks stay visible for clarification).
- * Subtasks and completed tasks are never in the inbox.
+ * Inbox tasks: completed tasks are never included.
+ * - Subtasks: only if created within the last 10 minutes.
+ * - Top-level tasks: included if recent (< 10 min), or if fully unprocessed.
  */
 export const isInbox = (t: Task): boolean => {
-	if (t.completed || t.parentId) return false;
-	if (Date.now() - t.createdAt < INBOX_RECENCY_MS) return true;
+	if (t.completed) return false;
+	const isRecent = Date.now() - t.createdAt < INBOX_RECENCY_MS;
+	if (t.parentId) return isRecent; // subtasks only while recently captured
+	if (isRecent) return true;
 	return !t.context && !t.delegatedTo && !t.dueDate && !t.someday;
 };
 
@@ -31,12 +33,13 @@ export const isDoItNow = (t: Task): boolean =>
 	!t.completed && t.estimatedMinutes != null && t.estimatedMinutes <= 2;
 
 /**
- * Inbox "Do it Now" quick-wins: top-level, active, unprocessed (no context, no delegation),
- * and estimated at ≤ 2 minutes. Shown as a banner in the Inbox view.
+ * Inbox "Do it Now" quick-wins: active, leaf task (no children/subtasks),
+ * unprocessed (no context, no delegation), and estimated at ≤ 2 minutes.
+ * Both top-level tasks and subtasks qualify, as long as they have no children.
  */
 export const isQuickWin = (t: Task): boolean =>
 	!t.completed &&
-	!t.parentId &&
+	!(t.children?.length) &&
 	!t.context &&
 	!t.delegatedTo &&
 	t.estimatedMinutes != null &&
