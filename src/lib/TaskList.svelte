@@ -6,6 +6,8 @@
 	interface Props {
 		title: string;
 		icon: string;
+		/** Optional subtitle shown below the header */
+		description?: string;
 		tasks: Task[];
 		/** Extra tasks passed in so subtasks can be found (e.g. all tasks for this list) */
 		allTasks?: Task[];
@@ -14,7 +16,7 @@
 		onTasksChange: () => void;
 	}
 
-	let { title, icon, tasks = $bindable([]), allTasks, addAsSomeday = false, onTasksChange }: Props = $props();
+	let { title, icon, description, tasks = $bindable([]), allTasks, addAsSomeday = false, onTasksChange }: Props = $props();
 
 	function focusOnMount(node: HTMLElement) {
 		node.focus();
@@ -180,6 +182,10 @@
 			{topLevelActive.length}
 		</span>
 	</div>
+
+	{#if description}
+		<p class="text-xs text-slate-400 mb-4">{description}</p>
+	{/if}
 
 	<!-- Add task form -->
 	{#if showForm}

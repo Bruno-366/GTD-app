@@ -95,10 +95,13 @@ export async function getInboxTasks(): Promise<Task[]> {
 	);
 }
 
-/** Tasks with a context assigned (top-level only) */
+/** Tasks with a context assigned (top-level only), plus all their subtasks */
 export async function getNextActionTasks(): Promise<Task[]> {
 	const all = await getAllTasks();
-	return all.filter((t) => !t.completed && !!t.context);
+	const topLevel = all.filter((t) => !t.completed && !!t.context && !t.parentId);
+	const parentIds = new Set(topLevel.map((t) => t.id));
+	const subtasks = all.filter((t) => !!t.parentId && parentIds.has(t.parentId));
+	return [...topLevel, ...subtasks];
 }
 
 /** Tasks delegated to someone */

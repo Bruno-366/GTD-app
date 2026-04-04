@@ -1,14 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import TaskList from '$lib/TaskList.svelte';
-	import { getNextActionTasks, getAllTasks } from '$lib/db';
+	import { getNextActionTasks } from '$lib/db';
 	import type { Task } from '$lib/types';
 
 	let tasks = $state<Task[]>([]);
-	let allTasks = $state<Task[]>([]);
 
 	async function loadTasks() {
-		[tasks, allTasks] = await Promise.all([getNextActionTasks(), getAllTasks()]);
+		tasks = await getNextActionTasks();
 	}
 
 	onMount(loadTasks);
@@ -22,6 +21,5 @@
 	title="Next Actions"
 	icon="⚡"
 	{tasks}
-	{allTasks}
 	onTasksChange={loadTasks}
 />
