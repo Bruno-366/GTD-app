@@ -52,15 +52,17 @@
 	</header>
 
 	<div class="flex flex-1 max-w-screen-xl w-full mx-auto p-6 gap-6 max-sm:flex-col max-sm:p-4 max-sm:gap-4">
-		<nav class="flex flex-col gap-1 w-48 shrink-0 max-sm:w-full max-sm:flex-row max-sm:flex-wrap">
+		<nav aria-label="Main navigation" class="flex flex-col gap-1 w-48 shrink-0 max-sm:w-full max-sm:flex-row max-sm:flex-wrap">
 			{#each navItems as item}
 				{@const target = `${base}${item.href}`.replace(/\/$/, '')}
+				{@const isActive = $page.url.pathname.replace(/\/$/, '') === target}
 				<a
 					href="{base}{item.href}"
-					class="flex items-center gap-3 px-4 py-3 rounded-lg no-underline text-slate-600 font-medium transition-colors duration-150 hover:bg-slate-200 hover:text-slate-900 max-sm:flex-1 max-sm:min-w-[100px] max-sm:justify-center max-sm:px-3 max-sm:py-2 {$page.url.pathname.replace(/\/$/, '') === target ? 'bg-violet-100 !text-indigo-600' : ''}"
+					aria-current={isActive ? 'page' : undefined}
+					class="flex items-center gap-3 px-4 py-3 rounded-lg no-underline text-slate-600 font-medium transition-colors duration-150 hover:bg-slate-200 hover:text-slate-900 max-sm:flex-1 max-sm:min-w-[100px] max-sm:justify-center max-sm:px-3 max-sm:py-2 {isActive ? 'bg-violet-100 !text-indigo-600' : ''}"
 				>
-					<span class="text-[1.1rem]">{item.icon}</span>
-					<span class="max-sm:hidden">{item.label}</span>
+					<span aria-hidden="true" class="text-[1.1rem]">{item.icon}</span>
+					<span class="sr-only sm:not-sr-only">{item.label}</span>
 				</a>
 			{/each}
 		</nav>
