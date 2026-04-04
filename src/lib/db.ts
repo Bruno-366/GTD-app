@@ -1,4 +1,5 @@
 import type { Task } from './types';
+import { isInbox, isNextAction, isSubtaskOf, isWaiting, isSomeday, isDoItNow, hasDueDate } from './filters';
 
 const DB_NAME = 'gtd-app';
 const DB_VERSION = 3;
@@ -55,7 +56,7 @@ function openDB(): Promise<IDBDatabase> {
 					const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
 					if (cursor) {
 						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						const { list, project, ...rest } = cursor.value as any;
+						const { list, project: _project, ...rest } = cursor.value as any;
 						const updated = list === 'someday' ? { ...rest, someday: true } : rest;
 						cursor.update(updated);
 						cursor.continue();
@@ -90,42 +91,40 @@ export async function getAllTasks(): Promise<Task[]> {
 /** Unprocessed tasks: no context, no delegation, no due date, not someday, not a subtask */
 export async function getInboxTasks(): Promise<Task[]> {
 	const all = await getAllTasks();
-	return all.filter(
-		(t) => !t.completed && !t.parentId && !t.context && !t.delegatedTo && !t.dueDate && !t.someday
-	);
+	return all.filter(isInbox);
 }
 
 /** Tasks with a context assigned (top-level only), plus all their subtasks */
 export async function getNextActionTasks(): Promise<Task[]> {
 	const all = await getAllTasks();
-	const topLevel = all.filter((t) => !t.completed && !!t.context && !t.parentId);
+	const topLevel = all.filter(isNextAction);
 	const parentIds = new Set(topLevel.map((t) => t.id));
-	const subtasks = all.filter((t) => !!t.parentId && parentIds.has(t.parentId));
+	const subtasks = all.filter(isSubtaskOf(parentIds));
 	return [...topLevel, ...subtasks];
 }
 
 /** Tasks delegated to someone */
 export async function getWaitingTasks(): Promise<Task[]> {
 	const all = await getAllTasks();
-	return all.filter((t) => !t.completed && !!t.delegatedTo);
+	return all.filter(isWaiting);
 }
 
 /** Tasks flagged as someday/maybe */
 export async function getSomedayTasks(): Promise<Task[]> {
 	const all = await getAllTasks();
-	return all.filter((t) => !t.completed && !!t.someday);
+	return all.filter(isSomeday);
 }
 
 /** Tasks that can be done in ≤ 2 minutes */
 export async function getDoItNowTasks(): Promise<Task[]> {
 	const all = await getAllTasks();
-	return all.filter((t) => !t.completed && t.estimatedMinutes != null && t.estimatedMinutes <= 2);
+	return all.filter(isDoItNow);
 }
 
 /** Tasks with a due date */
 export async function getTasksWithDueDate(): Promise<Task[]> {
 	const all = await getAllTasks();
-	return all.filter((t) => !!t.dueDate && !t.completed);
+	return all.filter(hasDueDate);
 }
 
 export async function getSubtasks(parentId: string): Promise<Task[]> {
