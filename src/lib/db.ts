@@ -1,5 +1,5 @@
 import type { Task } from './types';
-import { isInbox, isNextAction, isSubtaskOf, isWaiting, isSomeday, isDoItNow, isQuickWin, hasDueDate } from './filters';
+import { isNextAction, isSubtaskOf, isWaiting, isSomeday, isQuickWin, hasDueDate } from './filters';
 
 const DB_NAME = 'gtd-app';
 const DB_VERSION = 3;
@@ -98,12 +98,6 @@ export async function getAllTasks(): Promise<Task[]> {
 	return raw.map((t) => ({ ...t, children: childrenMap.get(t.id) ?? [] }));
 }
 
-/** Unprocessed tasks: no context, no delegation, no due date, not someday, not a subtask */
-export async function getInboxTasks(): Promise<Task[]> {
-	const all = await getAllTasks();
-	return all.filter(isInbox);
-}
-
 /** Tasks with a context assigned (top-level only), plus all their subtasks */
 export async function getNextActionTasks(): Promise<Task[]> {
 	const all = await getAllTasks();
@@ -125,12 +119,6 @@ export async function getSomedayTasks(): Promise<Task[]> {
 	return all.filter(isSomeday);
 }
 
-/** Tasks that can be done in ≤ 2 minutes */
-export async function getDoItNowTasks(): Promise<Task[]> {
-	const all = await getAllTasks();
-	return all.filter(isDoItNow);
-}
-
 /** Inbox quick-wins: active leaf tasks (no children), no context/delegation, ≤ 2 minutes */
 export async function getQuickWinTasks(): Promise<Task[]> {
 	const all = await getAllTasks();
@@ -141,19 +129,6 @@ export async function getQuickWinTasks(): Promise<Task[]> {
 export async function getTasksWithDueDate(): Promise<Task[]> {
 	const all = await getAllTasks();
 	return all.filter(hasDueDate);
-}
-
-export async function getSubtasks(parentId: string): Promise<Task[]> {
-	const db = await openDB();
-	return new Promise((resolve, reject) => {
-		const tx = db.transaction(TASKS_STORE, 'readonly');
-		const store = tx.objectStore(TASKS_STORE);
-		const index = store.index('parentId');
-		const request = index.getAll(parentId);
-		request.onsuccess = () => resolve(request.result as Task[]);
-		request.onerror = () => reject(request.error);
-		tx.oncomplete = () => db.close();
-	});
 }
 
 // ── Write helpers ─────────────────────────────────────────────────────────────

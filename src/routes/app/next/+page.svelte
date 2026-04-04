@@ -9,6 +9,10 @@
 
 	async function loadTasks() {
 		tasks = await getNextActionTasks();
+	}
+
+	async function handleTasksChange() {
+		await loadTasks();
 		notifyTaskChange();
 	}
 
@@ -23,5 +27,5 @@
 	title="Next Actions"
 	icon="⚡"
 	{tasks}
-	onTasksChange={loadTasks}
+	onTasksChange={handleTasksChange}
 />
