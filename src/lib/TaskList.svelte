@@ -1,21 +1,20 @@
 <script lang="ts">
-	import type { Task, Project } from '$lib/types';
-	import type { ListType } from '$lib/types';
+	import type { Task } from '$lib/types';
 	import { addTask, updateTask, deleteTask } from '$lib/db';
 	import { parseTaskTitle } from '$lib/parseTask';
 
 	interface Props {
-		list: Task['list'];
 		title: string;
 		icon: string;
 		tasks: Task[];
-		projects?: Project[];
 		/** Extra tasks passed in so subtasks can be found (e.g. all tasks for this list) */
 		allTasks?: Task[];
+		/** When true, new tasks created here are marked as someday/maybe */
+		addAsSomeday?: boolean;
 		onTasksChange: () => void;
 	}
 
-	let { list, title, icon, tasks = $bindable([]), projects = [], allTasks, onTasksChange }: Props = $props();
+	let { title, icon, tasks = $bindable([]), allTasks, addAsSomeday = false, onTasksChange }: Props = $props();
 
 	function focusOnMount(node: HTMLElement) {
 		node.focus();
@@ -24,16 +23,17 @@
 	// ── new task form ─────────────────────────────────────────────────────────
 	let newTitle = $state('');
 	let newNotes = $state('');
-	let newProject = $state('');
 	let newDueDate = $state('');
 	let newEstimated = $state('');
+	// newSomeday mirrors addAsSomeday at form-open time; $effect syncs when prop changes
+	let newSomeday = $state(false);
+	$effect(() => { newSomeday = addAsSomeday; });
 	let showForm = $state(false);
 
 	// ── edit form ─────────────────────────────────────────────────────────────
 	let editingTask = $state<Task | null>(null);
 	let editTitle = $state('');
 	let editNotes = $state('');
-	let editProject = $state('');
 	let editDueDate = $state('');
 	let editEstimated = $state('');
 
@@ -56,14 +56,6 @@
 	// Live parse preview while typing in the title field
 	const parsed = $derived(parseTaskTitle(newTitle));
 
-	/** Determine list based on parsed keywords (unless list is explicitly set) */
-	function resolvedList(): ListType {
-		if (list !== 'inbox') return list; // on non-inbox pages, always use the page's list
-		if (parsed.context) return 'next';
-		if (parsed.delegatedTo) return 'waiting';
-		return 'inbox';
-	}
-
 	async function handleAdd() {
 		const trimmed = newTitle.trim();
 		if (!trimmed) return;
@@ -71,18 +63,19 @@
 		const { cleanTitle, context, delegatedTo, estimatedMinutes } = parseTaskTitle(trimmed);
 		const estMins = newEstimated ? parseInt(newEstimated, 10) : estimatedMinutes;
 
-		await addTask(cleanTitle, resolvedList(), newNotes.trim(), newProject || undefined, {
+		await addTask(cleanTitle, newNotes.trim(), {
 			context,
 			delegatedTo,
 			estimatedMinutes: estMins || undefined,
-			dueDate: newDueDate || undefined
+			dueDate: newDueDate || undefined,
+			someday: newSomeday || undefined
 		});
 
 		newTitle = '';
 		newNotes = '';
-		newProject = '';
 		newDueDate = '';
 		newEstimated = '';
+		newSomeday = addAsSomeday;
 		showForm = false;
 		onTasksChange();
 	}
@@ -90,7 +83,7 @@
 	async function handleAddSubtask(parentTask: Task) {
 		const trimmed = subtaskTitle.trim();
 		if (!trimmed) return;
-		await addTask(trimmed, parentTask.list, '', undefined, { parentId: parentTask.id });
+		await addTask(trimmed, '', { parentId: parentTask.id });
 		subtaskTitle = '';
 		addingSubtaskFor = null;
 		onTasksChange();
@@ -115,7 +108,6 @@
 		editingTask = task;
 		editTitle = task.title;
 		editNotes = task.notes;
-		editProject = task.project ?? '';
 		editDueDate = task.dueDate ?? '';
 		editEstimated = task.estimatedMinutes != null ? String(task.estimatedMinutes) : '';
 	}
@@ -126,7 +118,6 @@
 			...editingTask,
 			title: editTitle.trim(),
 			notes: editNotes.trim(),
-			project: editProject || undefined,
 			dueDate: editDueDate || undefined,
 			estimatedMinutes: editEstimated ? parseInt(editEstimated, 10) : undefined
 		});
@@ -214,8 +205,8 @@
 					{#if parsed.estimatedMinutes != null}
 						<span class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">⏱ {formatMinutes(parsed.estimatedMinutes)}</span>
 					{/if}
-					{#if list === 'inbox' && (parsed.context || parsed.delegatedTo)}
-						<span class="text-slate-400 italic">→ will go to {parsed.context ? 'Next Actions' : 'Waiting For'}</span>
+					{#if parsed.context || parsed.delegatedTo}
+						<span class="text-slate-400 italic">→ will appear in {parsed.context ? 'Next Actions' : 'Waiting For'}</span>
 					{/if}
 				</div>
 			{/if}
@@ -238,14 +229,10 @@
 				</div>
 			</div>
 
-			{#if list !== 'inbox' && projects.length > 0}
-				<select bind:value={newProject} class="{inputCls} cursor-pointer">
-					<option value="">No project</option>
-					{#each projects.filter((p) => !p.completed) as project}
-						<option value={project.id}>{project.title}</option>
-					{/each}
-				</select>
-			{/if}
+			<label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
+				<input type="checkbox" bind:checked={newSomeday} class="w-4 h-4 accent-indigo-600 cursor-pointer" />
+				Someday / Maybe
+			</label>
 
 			<div class="flex gap-2">
 				<button onclick={handleAdd} disabled={!newTitle.trim()} class={btnPrimary}>Add task</button>
@@ -278,14 +265,6 @@
 								<input id="edit-estimated" type="number" min="1" bind:value={editEstimated} class={inputCls} />
 							</div>
 						</div>
-						{#if projects.length > 0}
-							<select bind:value={editProject} class="{inputCls} cursor-pointer">
-								<option value="">No project</option>
-								{#each projects.filter((p) => !p.completed) as project}
-									<option value={project.id}>{project.title}</option>
-								{/each}
-							</select>
-						{/if}
 						<div class="flex gap-2">
 							<button onclick={handleEditSave} disabled={!editTitle.trim()} class={btnPrimary}>Save</button>
 							<button onclick={cancelEdit} class={btnSecondary}>Cancel</button>
@@ -318,11 +297,8 @@
 								{#if task.dueDate}
 									<span class="text-xs bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full">📅 {formatDate(task.dueDate)}</span>
 								{/if}
-								{#if task.project}
-									{@const proj = projects.find((p) => p.id === task.project)}
-									{#if proj}
-										<span class="text-xs bg-violet-100 text-indigo-600 px-2 py-0.5 rounded-full">📁 {proj.title}</span>
-									{/if}
+								{#if task.someday}
+									<span class="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">🌟 Someday</span>
 								{/if}
 							</div>
 						</div>

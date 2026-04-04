@@ -1,14 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import TaskList from '$lib/TaskList.svelte';
-	import { getTasksByList, getAllProjects } from '$lib/db';
-	import type { Task, Project } from '$lib/types';
+	import { getSomedayTasks } from '$lib/db';
+	import type { Task } from '$lib/types';
 
 	let tasks = $state<Task[]>([]);
-	let projects = $state<Project[]>([]);
 
 	async function loadTasks() {
-		[tasks, projects] = await Promise.all([getTasksByList('someday'), getAllProjects()]);
+		tasks = await getSomedayTasks();
 	}
 
 	onMount(loadTasks);
@@ -19,10 +18,9 @@
 </svelte:head>
 
 <TaskList
-	list="someday"
 	title="Someday / Maybe"
 	icon="🌟"
 	{tasks}
-	{projects}
+	addAsSomeday={true}
 	onTasksChange={loadTasks}
 />

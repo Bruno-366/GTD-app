@@ -11,9 +11,9 @@
 
 	onMount(loadData);
 
-	// Top-level tasks: in the 'project' list or tasks that have subtasks (any list)
+	// Top-level tasks: tasks without a parentId (these are the "projects")
 	const projectTasks = $derived(
-		allTasks.filter((t) => t.list === 'project' && !t.parentId)
+		allTasks.filter((t) => !t.parentId)
 	);
 	const activeProjects = $derived(projectTasks.filter((p) => !p.completed));
 	const completedProjects = $derived(projectTasks.filter((p) => p.completed));
@@ -35,7 +35,7 @@
 	async function handleAddProject() {
 		const trimmed = newTitle.trim();
 		if (!trimmed) return;
-		await addTask(trimmed, 'project', newNotes.trim());
+		await addTask(trimmed, newNotes.trim());
 		newTitle = '';
 		newNotes = '';
 		showForm = false;
@@ -75,7 +75,7 @@
 	async function handleAddSubtask(parent: Task) {
 		const trimmed = subtaskTitle.trim();
 		if (!trimmed) return;
-		await addTask(trimmed, 'project', '', undefined, { parentId: parent.id });
+		await addTask(trimmed, '', { parentId: parent.id });
 		subtaskTitle = '';
 		addingSubtaskFor = null;
 		await loadData();

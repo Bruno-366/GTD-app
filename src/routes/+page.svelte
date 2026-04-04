@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import TaskList from '$lib/TaskList.svelte';
-	import { getTasksByList } from '$lib/db';
+	import { getInboxTasks } from '$lib/db';
 	import type { Task } from '$lib/types';
 
 	let tasks = $state<Task[]>([]);
 
 	async function loadTasks() {
-		tasks = await getTasksByList('inbox');
+		tasks = await getInboxTasks();
 	}
 
 	onMount(loadTasks);
@@ -18,7 +18,6 @@
 </svelte:head>
 
 <TaskList
-	list="inbox"
 	title="Inbox"
 	icon="📥"
 	{tasks}
