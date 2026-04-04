@@ -47,3 +47,22 @@ export const isQuickWin = (t: Task): boolean =>
 
 /** Tasks with a due date */
 export const hasDueDate = (t: Task): boolean => !!t.dueDate && !t.completed;
+
+/**
+ * Collect the IDs of all descendants (any depth) for a given task.
+ * Uses the computed `children` arrays on task objects (available after `getAllTasks()`).
+ * The visited set prevents infinite loops if the data ever contains a cycle.
+ */
+export function getDescendantIds(task: Task, taskById: Map<string, Task>): Set<string> {
+	const ids = new Set<string>();
+	const queue = [...(task.children ?? [])];
+	while (queue.length > 0) {
+		const childId = queue.shift()!;
+		if (!ids.has(childId)) {
+			ids.add(childId);
+			const child = taskById.get(childId);
+			if (child?.children) queue.push(...child.children);
+		}
+	}
+	return ids;
+}

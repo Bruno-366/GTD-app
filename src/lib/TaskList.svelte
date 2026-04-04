@@ -2,6 +2,7 @@
 	import type { Task } from '$lib/types';
 	import { addTask, updateTask, deleteTaskAndPromoteChildren } from '$lib/db';
 	import { parseTaskTitle } from '$lib/parseTask';
+	import { getDescendantIds } from '$lib/filters';
 
 	interface Props {
 		title: string;
@@ -49,17 +50,24 @@
 
 	let showCompleted = $state(false);
 
-	// Derive top-level (no parentId) tasks only
-	const topLevelActive = $derived(tasks.filter((t) => !t.completed && !t.parentId));
-	const topLevelCompleted = $derived(tasks.filter((t) => t.completed && !t.parentId));
-
-	/** Candidate parent tasks for the edit form: any task except the one being edited */
-	const potentialParents = $derived(
-		editingTask ? (allTasks ?? tasks).filter((t) => t.id !== editingTask!.id) : []
-	);
-
 	/** Map from task id → Task for O(1) child lookups */
 	const taskById = $derived(new Map((allTasks ?? tasks).map((t) => [t.id, t])));
+
+	/** Set of task IDs present in the current view (used to identify view-local roots) */
+	const taskIdsInView = $derived(new Set(tasks.map((t) => t.id)));
+	// A task is a "root" in this view if it has no parentId, OR if its parent is not visible
+	// in the current task set. This handles filtered views (e.g. Waiting For) that include
+	// subtasks whose parents don't match the filter.
+	const topLevelActive = $derived(tasks.filter((t) => !t.completed && (!t.parentId || !taskIdsInView.has(t.parentId))));
+	const topLevelCompleted = $derived(tasks.filter((t) => t.completed && (!t.parentId || !taskIdsInView.has(t.parentId))));
+
+	/** Candidate parent tasks for the edit form: exclude the task being edited and all its descendants */
+	const potentialParents = $derived((() => {
+		if (!editingTask) return [];
+		const descendants = getDescendantIds(editingTask, taskById);
+		const editing = editingTask;
+		return (allTasks ?? tasks).filter((t) => t.id !== editing.id && !descendants.has(t.id));
+	})());
 
 	/** Return the direct children of a task as Task objects */
 	function childrenOf(task: Task): Task[] {

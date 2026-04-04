@@ -15,9 +15,10 @@
 		const inboxFiltered = all.filter(isInbox);
 		// If any recent subtask is in the inbox, also include its parent so TaskList
 		// can render it grouped under the correct parent task.
+		const inboxFilteredIds = new Set(inboxFiltered.map((t) => t.id));
 		const parentIdsNeeded = new Set(inboxFiltered.filter((t) => t.parentId).map((t) => t.parentId!));
 		const extraParents = all.filter(
-			(t) => parentIdsNeeded.has(t.id) && !inboxFiltered.some((it) => it.id === t.id)
+			(t) => parentIdsNeeded.has(t.id) && !inboxFilteredIds.has(t.id)
 		);
 		tasks = [...inboxFiltered, ...extraParents];
 		quickWinTasks = all.filter(isQuickWin);

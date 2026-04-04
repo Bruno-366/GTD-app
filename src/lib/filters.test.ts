@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Task } from './types';
-import { isInbox, isNextAction, isSubtaskOf, isWaiting, isSomeday, isDoItNow, isQuickWin, hasDueDate } from './filters';
+import { isInbox, isNextAction, isSubtaskOf, isWaiting, isSomeday, isDoItNow, isQuickWin, hasDueDate, getDescendantIds } from './filters';
 
 function makeTask(overrides: Partial<Task> = {}): Task {
 	return {
@@ -193,5 +193,54 @@ describe('isQuickWin', () => {
 
 	it('returns false when task is a project (has children)', () => {
 		expect(isQuickWin(makeTask({ estimatedMinutes: 1, children: ['child-1'] }))).toBe(false);
+	});
+});
+
+describe('getDescendantIds', () => {
+	function makeTaskMap(taskList: Task[]): Map<string, Task> {
+		return new Map(taskList.map((t) => [t.id, t]));
+	}
+
+	it('returns an empty set for a leaf task (no children)', () => {
+		const task = makeTask({ id: 'a' });
+		expect(getDescendantIds(task, makeTaskMap([task])).size).toBe(0);
+	});
+
+	it('returns the direct children of a task', () => {
+		const parent = makeTask({ id: 'parent', children: ['c1', 'c2'] });
+		const c1 = makeTask({ id: 'c1', parentId: 'parent' });
+		const c2 = makeTask({ id: 'c2', parentId: 'parent' });
+		const result = getDescendantIds(parent, makeTaskMap([parent, c1, c2]));
+		expect(result).toEqual(new Set(['c1', 'c2']));
+	});
+
+	it('returns all descendants at any depth', () => {
+		const root = makeTask({ id: 'root', children: ['a'] });
+		const a = makeTask({ id: 'a', parentId: 'root', children: ['b'] });
+		const b = makeTask({ id: 'b', parentId: 'a', children: ['c'] });
+		const c = makeTask({ id: 'c', parentId: 'b' });
+		const result = getDescendantIds(root, makeTaskMap([root, a, b, c]));
+		expect(result).toEqual(new Set(['a', 'b', 'c']));
+	});
+
+	it('handles a missing child id gracefully (child not in map)', () => {
+		const task = makeTask({ id: 'a', children: ['ghost'] });
+		// 'ghost' is not in the map — should not throw
+		const result = getDescendantIds(task, makeTaskMap([task]));
+		expect(result).toEqual(new Set(['ghost']));
+	});
+
+	it('does not loop infinitely when the task graph contains a cycle', () => {
+		// Artificially create a cycle: a → b → a
+		const a = makeTask({ id: 'a', children: ['b'] });
+		const b = makeTask({ id: 'b', parentId: 'a', children: ['a'] });
+		const result = getDescendantIds(a, makeTaskMap([a, b]));
+		// Both ids discovered; visited guard prevents infinite loop
+		expect(result).toEqual(new Set(['b', 'a']));
+	});
+
+	it('a leaf task is not a descendant of itself', () => {
+		const task = makeTask({ id: 'solo' });
+		expect(getDescendantIds(task, makeTaskMap([task])).has('solo')).toBe(false);
 	});
 });

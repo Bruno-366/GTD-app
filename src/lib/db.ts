@@ -131,7 +131,7 @@ export async function getDoItNowTasks(): Promise<Task[]> {
 	return all.filter(isDoItNow);
 }
 
-/** Inbox quick-wins: top-level, active, no context/delegation, ≤ 2 minutes */
+/** Inbox quick-wins: active leaf tasks (no children), no context/delegation, ≤ 2 minutes */
 export async function getQuickWinTasks(): Promise<Task[]> {
 	const all = await getAllTasks();
 	return all.filter(isQuickWin);
@@ -223,23 +223,34 @@ export async function deleteTask(id: string): Promise<void> {
 }
 
 /**
- * Delete a task and promote all its direct children to top-level in a single transaction.
- * This replaces the previous loop of individual `updateTask` + `deleteTask` calls.
+ * Delete a task and reparent all its direct children to the deleted task's parent
+ * (grandparent promotion) in a single transaction. This preserves the tree depth
+ * instead of always flattening children to the top level.
  */
 export async function deleteTaskAndPromoteChildren(id: string): Promise<void> {
 	const db = await openDB();
 	return new Promise((resolve, reject) => {
 		const tx = db.transaction(TASKS_STORE, 'readwrite');
 		const store = tx.objectStore(TASKS_STORE);
-		const index = store.index('parentId');
-		const childReq = index.getAll(id);
-		childReq.onsuccess = () => {
-			const children = childReq.result as Task[];
-			for (const child of children) {
-				const { parentId: _parentId, children: _children, ...childData } = child as Task & { children?: string[] };
-				store.put({ ...childData, updatedAt: Date.now() });
-			}
-			store.delete(id);
+		// First fetch the task to find its own parentId (the grandparent for promoted children)
+		const taskReq = store.get(id);
+		taskReq.onsuccess = () => {
+			const deletedTask = taskReq.result as (Task & { children?: string[] }) | undefined;
+			const grandparentId = deletedTask?.parentId;
+			const index = store.index('parentId');
+			const childReq = index.getAll(id);
+			childReq.onsuccess = () => {
+				const children = childReq.result as (Task & { children?: string[] })[];
+				for (const child of children) {
+					// Strip computed `children` field; set parentId to grandparent or omit if top-level
+					const { children: _c, parentId: _p, ...childData } = child;
+					const promoted = grandparentId
+						? { ...childData, parentId: grandparentId, updatedAt: Date.now() }
+						: { ...childData, updatedAt: Date.now() };
+					store.put(promoted);
+				}
+				store.delete(id);
+			};
 		};
 		tx.oncomplete = () => { db.close(); resolve(); };
 		tx.onerror = () => { db.close(); reject(tx.error); };
