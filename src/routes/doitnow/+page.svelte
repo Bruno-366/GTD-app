@@ -1,25 +1,26 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import TaskList from '$lib/TaskList.svelte';
-	import { getInboxTasks } from '$lib/db';
+	import { getDoItNowTasks } from '$lib/db';
 	import type { Task } from '$lib/types';
 
 	let tasks = $state<Task[]>([]);
 
 	async function loadTasks() {
-		tasks = await getInboxTasks();
+		tasks = await getDoItNowTasks();
 	}
 
 	onMount(loadTasks);
 </script>
 
 <svelte:head>
-	<title>Inbox — GTD App</title>
+	<title>Do it Now — GTD App</title>
 </svelte:head>
 
 <TaskList
-	title="Inbox"
-	icon="📥"
+	title="Do it Now"
+	icon="⏱"
+	description="All tasks estimated at 2 minutes or less — across every view."
 	{tasks}
 	onTasksChange={loadTasks}
 />
