@@ -38,6 +38,10 @@
 	let editNotes = $state('');
 	let editDueDate = $state('');
 	let editEstimated = $state('');
+	let editContext = $state('');
+	let editDelegatedTo = $state('');
+	let editSomeday = $state(false);
+	let editParentId = $state('');
 
 	// ── subtask form ──────────────────────────────────────────────────────────
 	let addingSubtaskFor = $state<string | null>(null);
@@ -48,6 +52,11 @@
 	// Derive top-level (no parentId) tasks only
 	const topLevelActive = $derived(tasks.filter((t) => !t.completed && !t.parentId));
 	const topLevelCompleted = $derived(tasks.filter((t) => t.completed && !t.parentId));
+
+	/** Candidate parent tasks for the edit form: top-level tasks that are not the task being edited */
+	const potentialParents = $derived(
+		editingTask ? (allTasks ?? tasks).filter((t) => !t.parentId && t.id !== editingTask!.id) : []
+	);
 
 	/** Get all subtasks (active + completed) for a given parent from allTasks or tasks */
 	function subtasksOf(parentId: string): Task[] {
@@ -85,7 +94,8 @@
 	async function handleAddSubtask(parentTask: Task) {
 		const trimmed = subtaskTitle.trim();
 		if (!trimmed) return;
-		await addTask(trimmed, '', { parentId: parentTask.id });
+		const { cleanTitle, context, delegatedTo, estimatedMinutes } = parseTaskTitle(trimmed);
+		await addTask(cleanTitle, '', { parentId: parentTask.id, context, delegatedTo, estimatedMinutes });
 		subtaskTitle = '';
 		addingSubtaskFor = null;
 		onTasksChange();
@@ -97,10 +107,10 @@
 	}
 
 	async function handleDelete(id: string) {
-		// Also delete subtasks
+		// Promote subtasks to top-level instead of cascade-deleting them
 		const subs = subtasksOf(id);
 		for (const sub of subs) {
-			await deleteTask(sub.id);
+			await updateTask({ ...sub, parentId: undefined });
 		}
 		await deleteTask(id);
 		onTasksChange();
@@ -112,6 +122,10 @@
 		editNotes = task.notes;
 		editDueDate = task.dueDate ?? '';
 		editEstimated = task.estimatedMinutes != null ? String(task.estimatedMinutes) : '';
+		editContext = task.context ?? '';
+		editDelegatedTo = task.delegatedTo ?? '';
+		editSomeday = task.someday ?? false;
+		editParentId = task.parentId ?? '';
 	}
 
 	async function handleEditSave() {
@@ -121,7 +135,11 @@
 			title: editTitle.trim(),
 			notes: editNotes.trim(),
 			dueDate: editDueDate || undefined,
-			estimatedMinutes: editEstimated ? parseInt(editEstimated, 10) : undefined
+			estimatedMinutes: editEstimated ? parseInt(editEstimated, 10) : undefined,
+			context: editContext.trim() || undefined,
+			delegatedTo: editDelegatedTo.trim() || undefined,
+			someday: editSomeday || undefined,
+			parentId: editParentId || undefined
 		});
 		editingTask = null;
 		onTasksChange();
@@ -263,6 +281,16 @@
 						<textarea bind:value={editNotes} rows={2} class="{inputCls} resize-y min-h-[60px]"></textarea>
 						<div class="flex gap-2">
 							<div class="flex-1">
+								<label for="edit-context" class="text-xs text-slate-500 mb-0.5 block">Context</label>
+								<input id="edit-context" type="text" placeholder="e.g. work" bind:value={editContext} class={inputCls} />
+							</div>
+							<div class="flex-1">
+								<label for="edit-delegated" class="text-xs text-slate-500 mb-0.5 block">Delegated to</label>
+								<input id="edit-delegated" type="text" placeholder="e.g. alice" bind:value={editDelegatedTo} class={inputCls} />
+							</div>
+						</div>
+						<div class="flex gap-2">
+							<div class="flex-1">
 								<label for="edit-due-date" class="text-xs text-slate-500 mb-0.5 block">Due date</label>
 								<input id="edit-due-date" type="date" bind:value={editDueDate} class={inputCls} />
 							</div>
@@ -271,6 +299,21 @@
 								<input id="edit-estimated" type="number" min="1" bind:value={editEstimated} class={inputCls} />
 							</div>
 						</div>
+						{#if potentialParents.length > 0}
+							<div>
+								<label for="edit-parent" class="text-xs text-slate-500 mb-0.5 block">Parent task</label>
+								<select id="edit-parent" bind:value={editParentId} class={inputCls}>
+									<option value="">— none (top-level) —</option>
+									{#each potentialParents as p (p.id)}
+										<option value={p.id}>{p.title}</option>
+									{/each}
+								</select>
+							</div>
+						{/if}
+						<label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none">
+							<input type="checkbox" bind:checked={editSomeday} class="w-4 h-4 accent-indigo-600 cursor-pointer" />
+							Someday / Maybe
+						</label>
 						<div class="flex gap-2">
 							<button onclick={handleEditSave} disabled={!editTitle.trim()} class={btnPrimary}>Save</button>
 							<button onclick={cancelEdit} class={btnSecondary}>Cancel</button>
@@ -320,19 +363,70 @@
 						<ul class="ml-8 flex flex-col gap-0.5 list-none mb-1">
 							{#each subs as sub (sub.id)}
 								<li>
-									<div class="group flex items-center gap-2 px-3 py-2 rounded-md transition-colors duration-100 hover:bg-slate-50">
-										<button
-											class="w-4 h-4 border-2 {sub.completed ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300'} rounded-full bg-transparent cursor-pointer shrink-0 flex items-center justify-center transition-colors duration-150 p-0 text-[0.6rem] hover:border-indigo-500"
-											onclick={() => handleToggle(sub)}
-											aria-label={sub.completed ? 'Mark as incomplete' : 'Mark as complete'}
-										>{sub.completed ? '✓' : ''}</button>
-										<span class="flex-1 text-sm {sub.completed ? 'line-through text-slate-400' : 'text-slate-700'} break-words">{sub.title}</span>
-										<button
-											class="bg-transparent border-0 text-slate-300 cursor-pointer text-xs p-1 leading-none shrink-0 opacity-0 group-hover:opacity-100 hover:!text-red-500"
-											onclick={() => deleteTask(sub.id).then(onTasksChange)}
-											aria-label="Delete subtask"
-										>✕</button>
-									</div>
+									{#if editingTask?.id === sub.id}
+										<!-- Subtask edit form -->
+										<div class="flex flex-col gap-2 my-1 p-3 bg-slate-50 rounded-lg border border-slate-200">
+											<input type="text" bind:value={editTitle} onkeydown={handleEditKeydown} class={inputCls} />
+											<textarea bind:value={editNotes} rows={2} class="{inputCls} resize-y min-h-[60px]"></textarea>
+											<div class="flex gap-2">
+												<div class="flex-1">
+													<label for="edit-sub-context" class="text-xs text-slate-500 mb-0.5 block">Context</label>
+													<input id="edit-sub-context" type="text" placeholder="e.g. work" bind:value={editContext} class={inputCls} />
+												</div>
+												<div class="flex-1">
+													<label for="edit-sub-delegated" class="text-xs text-slate-500 mb-0.5 block">Delegated to</label>
+													<input id="edit-sub-delegated" type="text" placeholder="e.g. alice" bind:value={editDelegatedTo} class={inputCls} />
+												</div>
+											</div>
+											<div class="flex gap-2">
+												<div class="flex-1">
+													<label for="edit-sub-due" class="text-xs text-slate-500 mb-0.5 block">Due date</label>
+													<input id="edit-sub-due" type="date" bind:value={editDueDate} class={inputCls} />
+												</div>
+												<div class="flex-1">
+													<label for="edit-sub-estimated" class="text-xs text-slate-500 mb-0.5 block">Estimate (minutes)</label>
+													<input id="edit-sub-estimated" type="number" min="1" bind:value={editEstimated} class={inputCls} />
+												</div>
+											</div>
+											<div class="flex gap-2">
+												<button onclick={handleEditSave} disabled={!editTitle.trim()} class={btnPrimary}>Save</button>
+												<button onclick={cancelEdit} class={btnSecondary}>Cancel</button>
+											</div>
+										</div>
+									{:else}
+										<div class="group flex items-start gap-2 px-3 py-2 rounded-md transition-colors duration-100 hover:bg-slate-50">
+											<button
+												class="w-4 h-4 border-2 {sub.completed ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300'} rounded-full bg-transparent cursor-pointer shrink-0 flex items-center justify-center transition-colors duration-150 p-0 text-[0.6rem] mt-0.5 hover:border-indigo-500"
+												onclick={() => handleToggle(sub)}
+												aria-label={sub.completed ? 'Mark as incomplete' : 'Mark as complete'}
+											>{sub.completed ? '✓' : ''}</button>
+											<div class="flex-1 flex flex-col gap-0.5 cursor-pointer min-w-0" role="button" tabindex="0" onclick={() => startEdit(sub)} onkeydown={(e) => e.key === 'Enter' && startEdit(sub)}>
+												<span class="text-sm {sub.completed ? 'line-through text-slate-400' : 'text-slate-700'} break-words">{sub.title}</span>
+												<!-- Subtask badges -->
+												{#if sub.context || sub.delegatedTo || sub.estimatedMinutes != null || sub.dueDate}
+													<div class="flex flex-wrap gap-1 mt-0.5">
+														{#if sub.context}
+															<span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">#{sub.context}</span>
+														{/if}
+														{#if sub.delegatedTo}
+															<span class="text-xs bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full">@{sub.delegatedTo}</span>
+														{/if}
+														{#if sub.estimatedMinutes != null}
+															<span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">⏱ {formatMinutes(sub.estimatedMinutes)}</span>
+														{/if}
+														{#if sub.dueDate}
+															<span class="text-xs bg-rose-100 text-rose-600 px-2 py-0.5 rounded-full">📅 {formatDate(sub.dueDate)}</span>
+														{/if}
+													</div>
+												{/if}
+											</div>
+											<button
+												class="bg-transparent border-0 text-slate-300 cursor-pointer text-xs p-1 leading-none shrink-0 opacity-0 group-hover:opacity-100 hover:!text-red-500"
+												onclick={() => deleteTask(sub.id).then(onTasksChange)}
+												aria-label="Delete subtask"
+											>✕</button>
+										</div>
+									{/if}
 								</li>
 							{/each}
 						</ul>
@@ -343,7 +437,7 @@
 						<div class="ml-8 flex gap-2 mb-2 items-center">
 							<input
 								type="text"
-								placeholder="Subtask…"
+								placeholder="Subtask… use #context, @person, ~5m"
 								bind:value={subtaskTitle}
 								onkeydown={(e) => handleSubtaskKeydown(e, task)}
 								class="flex-1 px-2 py-1.5 border border-slate-300 rounded-md text-sm bg-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 font-[inherit]"

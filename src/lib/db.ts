@@ -1,5 +1,5 @@
 import type { Task } from './types';
-import { isInbox, isNextAction, isSubtaskOf, isWaiting, isSomeday, isDoItNow, hasDueDate } from './filters';
+import { isInbox, isNextAction, isSubtaskOf, isWaiting, isSomeday, isDoItNow, isQuickWin, hasDueDate } from './filters';
 
 const DB_NAME = 'gtd-app';
 const DB_VERSION = 3;
@@ -119,6 +119,12 @@ export async function getSomedayTasks(): Promise<Task[]> {
 export async function getDoItNowTasks(): Promise<Task[]> {
 	const all = await getAllTasks();
 	return all.filter(isDoItNow);
+}
+
+/** Inbox quick-wins: top-level, active, no context/delegation, ≤ 2 minutes */
+export async function getQuickWinTasks(): Promise<Task[]> {
+	const all = await getAllTasks();
+	return all.filter(isQuickWin);
 }
 
 /** Tasks with a due date */

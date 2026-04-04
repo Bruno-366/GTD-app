@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Task } from './types';
-import { isInbox, isNextAction, isSubtaskOf, isWaiting, isSomeday, isDoItNow, hasDueDate } from './filters';
+import { isInbox, isNextAction, isSubtaskOf, isWaiting, isSomeday, isDoItNow, isQuickWin, hasDueDate } from './filters';
 
 function makeTask(overrides: Partial<Task> = {}): Task {
 	return {
@@ -14,33 +14,52 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 	};
 }
 
+/** A timestamp 15 minutes in the past, so it falls outside the 10-minute inbox recency window */
+const OLD_TS = Date.now() - 15 * 60 * 1000;
+
 describe('isInbox', () => {
 	it('returns true for a bare, unprocessed task', () => {
 		expect(isInbox(makeTask())).toBe(true);
 	});
 
-	it('returns false when task is completed', () => {
+	it('returns true for a recently created task even when it has a context', () => {
+		expect(isInbox(makeTask({ context: 'work' }))).toBe(true);
+	});
+
+	it('returns true for a recently created task even when it is delegated', () => {
+		expect(isInbox(makeTask({ delegatedTo: 'alice' }))).toBe(true);
+	});
+
+	it('returns false when task is completed (even if recent)', () => {
 		expect(isInbox(makeTask({ completed: true }))).toBe(false);
 	});
 
-	it('returns false when task has a context', () => {
-		expect(isInbox(makeTask({ context: 'work' }))).toBe(false);
-	});
-
-	it('returns false when task is delegated', () => {
-		expect(isInbox(makeTask({ delegatedTo: 'alice' }))).toBe(false);
-	});
-
-	it('returns false when task has a due date', () => {
-		expect(isInbox(makeTask({ dueDate: '2025-01-01' }))).toBe(false);
-	});
-
-	it('returns false when task is someday', () => {
-		expect(isInbox(makeTask({ someday: true }))).toBe(false);
-	});
-
-	it('returns false when task is a subtask', () => {
+	it('returns false when task is a subtask (even if recent)', () => {
 		expect(isInbox(makeTask({ parentId: 'parent-1' }))).toBe(false);
+	});
+
+	it('returns false when an old task has a context', () => {
+		expect(isInbox(makeTask({ context: 'work', createdAt: OLD_TS }))).toBe(false);
+	});
+
+	it('returns false when an old task is delegated', () => {
+		expect(isInbox(makeTask({ delegatedTo: 'alice', createdAt: OLD_TS }))).toBe(false);
+	});
+
+	it('returns false when an old task has a due date', () => {
+		expect(isInbox(makeTask({ dueDate: '2025-01-01', createdAt: OLD_TS }))).toBe(false);
+	});
+
+	it('returns false when an old task is someday', () => {
+		expect(isInbox(makeTask({ someday: true, createdAt: OLD_TS }))).toBe(false);
+	});
+
+	it('returns false when an old task is a subtask', () => {
+		expect(isInbox(makeTask({ parentId: 'parent-1', createdAt: OLD_TS }))).toBe(false);
+	});
+
+	it('returns true for an old bare unprocessed task', () => {
+		expect(isInbox(makeTask({ createdAt: OLD_TS }))).toBe(true);
 	});
 });
 
@@ -139,5 +158,36 @@ describe('hasDueDate', () => {
 
 	it('returns false when dueDate is not set', () => {
 		expect(hasDueDate(makeTask())).toBe(false);
+	});
+});
+
+describe('isQuickWin', () => {
+	it('returns true for an active top-level task with ≤ 2 min estimate and no context/delegation', () => {
+		expect(isQuickWin(makeTask({ estimatedMinutes: 1 }))).toBe(true);
+		expect(isQuickWin(makeTask({ estimatedMinutes: 2 }))).toBe(true);
+	});
+
+	it('returns false when estimatedMinutes > 2', () => {
+		expect(isQuickWin(makeTask({ estimatedMinutes: 3 }))).toBe(false);
+	});
+
+	it('returns false when estimatedMinutes is not set', () => {
+		expect(isQuickWin(makeTask())).toBe(false);
+	});
+
+	it('returns false when completed', () => {
+		expect(isQuickWin(makeTask({ estimatedMinutes: 1, completed: true }))).toBe(false);
+	});
+
+	it('returns false when task has a context', () => {
+		expect(isQuickWin(makeTask({ estimatedMinutes: 1, context: 'work' }))).toBe(false);
+	});
+
+	it('returns false when task is delegated', () => {
+		expect(isQuickWin(makeTask({ estimatedMinutes: 1, delegatedTo: 'alice' }))).toBe(false);
+	});
+
+	it('returns false when task is a subtask', () => {
+		expect(isQuickWin(makeTask({ estimatedMinutes: 1, parentId: 'parent-1' }))).toBe(false);
 	});
 });
