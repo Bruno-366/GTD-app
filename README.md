@@ -32,15 +32,47 @@ Add tasks using inline shortcuts as you type:
 | `/` | Landing page |
 | `/app` | Inbox |
 | `/app/next` | Next Actions |
-| `/app/doitnow` | Do it Now |
 | `/app/projects` | Projects |
 | `/app/waiting` | Waiting For |
 | `/app/someday` | Someday / Maybe |
 | `/app/calendar` | Calendar |
 
-## Developing
+> **Do it Now** tasks (≤ 2 minutes) appear as an inline banner on every view — no separate route.
 
-Install dependencies and start the dev server:
+## Accessibility
+
+This app is built with [WAI-ARIA](https://www.w3.org/WAI/ARIA/apg/) guidelines in mind:
+
+- All navigation links use `aria-current="page"` to indicate the active view.
+- The sidebar `<nav>` is a labelled landmark (`aria-label="Main navigation"`).
+- The **Do it Now** banner is a named region (`role="region" aria-label="Do it Now"`).
+- Every form input and textarea has an accessible label (`aria-label` or `<label for>`).
+- Task row interactive divs carry a descriptive `aria-label="Edit task: …"`.
+- Decorative emoji are hidden from assistive technology with `aria-hidden="true"`.
+- The completed-tasks toggle exposes its open/closed state via `aria-expanded`.
+- Task lists are labelled (`aria-label="Active tasks"` / `"Completed tasks"`).
+
+## Testing
+
+Run the test suite (unit and component tests powered by [Vitest](https://vitest.dev) and [@testing-library/svelte](https://testing-library.com/docs/svelte-testing-library/intro/)):
+
+```sh
+npm test
+```
+
+Watch mode (re-runs on file changes):
+
+```sh
+npm run test:watch
+```
+
+Coverage report:
+
+```sh
+npm run test:coverage
+```
+
+## Developing
 
 ```sh
 npm install

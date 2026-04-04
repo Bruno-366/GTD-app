@@ -195,4 +195,75 @@ describe('TaskList', () => {
 		expect(screen.getByText('Alice task')).toBeInTheDocument();
 		expect(screen.queryByText('Bob task')).not.toBeInTheDocument();
 	});
+
+	// ── Accessibility (WAI-ARIA) tests ──────────────────────────────────────────
+
+	it('active tasks list has an accessible label', () => {
+		const tasks = [makeTask({ id: 'a', title: 'My task' })];
+		render(TaskList, { props: { title: 'Inbox', icon: '📥', tasks, onTasksChange: vi.fn() } });
+
+		expect(screen.getByRole('list', { name: /active tasks/i })).toBeInTheDocument();
+	});
+
+	it('task count badge has an aria-label describing active task count', () => {
+		const tasks = [makeTask({ id: 'a', title: 'Alpha' }), makeTask({ id: 'b', title: 'Beta' })];
+		render(TaskList, { props: { title: 'Inbox', icon: '📥', tasks, onTasksChange: vi.fn() } });
+
+		// The aria-label should describe the count
+		expect(screen.getByLabelText(/2 active tasks/i)).toBeInTheDocument();
+	});
+
+	it('completed tasks toggle button has aria-expanded=false initially', () => {
+		const tasks = [makeTask({ id: 'c', title: 'Done', completed: true })];
+		render(TaskList, { props: { title: 'Inbox', icon: '📥', tasks, onTasksChange: vi.fn() } });
+
+		const toggle = screen.getByRole('button', { name: /Completed \(1\)/i });
+		expect(toggle).toHaveAttribute('aria-expanded', 'false');
+	});
+
+	it('completed tasks toggle button has aria-expanded=true after clicking', async () => {
+		const user = userEvent.setup();
+		const tasks = [makeTask({ id: 'c', title: 'Done', completed: true })];
+		render(TaskList, { props: { title: 'Inbox', icon: '📥', tasks, onTasksChange: vi.fn() } });
+
+		const toggle = screen.getByRole('button', { name: /Completed \(1\)/i });
+		await user.click(toggle);
+
+		expect(toggle).toHaveAttribute('aria-expanded', 'true');
+	});
+
+	it('completed tasks list has an accessible label when shown', async () => {
+		const user = userEvent.setup();
+		const tasks = [makeTask({ id: 'c', title: 'Done', completed: true })];
+		render(TaskList, { props: { title: 'Inbox', icon: '📥', tasks, onTasksChange: vi.fn() } });
+
+		await user.click(screen.getByRole('button', { name: /Completed \(1\)/i }));
+
+		expect(screen.getByRole('list', { name: /completed tasks/i })).toBeInTheDocument();
+	});
+
+	it('task title input in add form has an accessible label', async () => {
+		const user = userEvent.setup();
+		render(TaskList, { props: { title: 'Inbox', icon: '📥', tasks: [], onTasksChange: vi.fn() } });
+
+		await user.click(screen.getByRole('button', { name: /Add task/i }));
+
+		expect(screen.getByRole('textbox', { name: /new task title/i })).toBeInTheDocument();
+	});
+
+	it('notes textarea in add form has an accessible label', async () => {
+		const user = userEvent.setup();
+		render(TaskList, { props: { title: 'Inbox', icon: '📥', tasks: [], onTasksChange: vi.fn() } });
+
+		await user.click(screen.getByRole('button', { name: /Add task/i }));
+
+		expect(screen.getByRole('textbox', { name: /new task notes/i })).toBeInTheDocument();
+	});
+
+	it('task row has an accessible edit button', () => {
+		const tasks = [makeTask({ id: 'a', title: 'Buy groceries' })];
+		render(TaskList, { props: { title: 'Inbox', icon: '📥', tasks, onTasksChange: vi.fn() } });
+
+		expect(screen.getByRole('button', { name: /edit task: buy groceries/i })).toBeInTheDocument();
+	});
 });

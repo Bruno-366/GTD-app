@@ -230,9 +230,9 @@
 	<!-- Header -->
 	<div class="flex items-center justify-between mb-5">
 		<h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
-			<span>{icon}</span> {title}
+			<span aria-hidden="true">{icon}</span> {title}
 		</h2>
-		<span class="bg-violet-100 text-indigo-600 text-sm font-semibold px-2 py-0.5 rounded-full">
+		<span aria-label="{topLevelActive.length} active tasks" class="bg-violet-100 text-indigo-600 text-sm font-semibold px-2 py-0.5 rounded-full">
 			{topLevelActive.length}
 		</span>
 	</div>
@@ -282,6 +282,7 @@
 		<div class="flex flex-col gap-2 mb-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
 			<input
 				type="text"
+				aria-label="New task title"
 				placeholder="Task title… use #context, @person, ~5m"
 				bind:value={newTitle}
 				onkeydown={handleKeydown}
@@ -308,6 +309,7 @@
 			{/if}
 
 			<textarea
+				aria-label="New task notes"
 				placeholder="Notes (optional)"
 				bind:value={newNotes}
 				rows={2}
@@ -347,8 +349,8 @@
 			{#if editingTask?.id === task.id}
 				<!-- Unified edit form — same fields for tasks at any depth -->
 				<div class="flex flex-col gap-2 mb-2 p-4 bg-slate-50 rounded-lg border border-slate-200">
-					<input type="text" bind:value={editTitle} onkeydown={handleEditKeydown} class={inputCls} />
-					<textarea bind:value={editNotes} rows={2} class="{inputCls} resize-y min-h-[60px]"></textarea>
+					<input type="text" aria-label="Edit task title" bind:value={editTitle} onkeydown={handleEditKeydown} class={inputCls} />
+					<textarea aria-label="Edit task notes" bind:value={editNotes} rows={2} class="{inputCls} resize-y min-h-[60px]"></textarea>
 					<div class="flex gap-2">
 						<div class="flex-1">
 							<label for="edit-context" class="text-xs text-slate-500 mb-0.5 block">Context</label>
@@ -398,7 +400,7 @@
 						onclick={() => handleToggle(task)}
 						aria-label={task.completed ? 'Mark as incomplete' : 'Mark as complete'}
 					>{task.completed ? '✓' : ''}</button>
-					<div class="flex-1 flex flex-col gap-1 cursor-pointer min-w-0" role="button" tabindex="0" onclick={() => startEdit(task)} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && startEdit(task)}>
+					<button type="button" class="flex-1 flex flex-col gap-1 text-left min-w-0 bg-transparent border-0 p-0 cursor-pointer font-[inherit]" aria-label="Edit task: {task.title}" onclick={() => startEdit(task)}>
 						<span class="text-[0.9375rem] {task.completed ? 'line-through text-slate-400' : 'text-slate-900'} break-words">{task.title}</span>
 						{#if task.notes}
 							<span class="text-[0.8125rem] text-slate-500 break-words">{task.notes}</span>
@@ -421,7 +423,7 @@
 								<span class="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">🌟 Someday</span>
 							{/if}
 						</div>
-					</div>
+					</button>
 					<button
 						class="bg-transparent border-0 text-slate-300 cursor-pointer text-sm p-1 leading-none shrink-0 opacity-0 transition-[color,opacity] duration-150 group-hover:opacity-100 hover:!text-red-500"
 						onclick={() => handleDelete(task.id)}
@@ -443,6 +445,7 @@
 					<div class="ml-8 flex gap-2 mb-2 items-center">
 						<input
 							type="text"
+							aria-label="Subtask title"
 							placeholder="Subtask… use #context, @person, ~5m"
 							bind:value={subtaskTitle}
 							onkeydown={(e) => handleSubtaskKeydown(e, task)}
@@ -450,7 +453,7 @@
 							use:focusOnMount
 						/>
 						<button onclick={() => handleAddSubtask(task)} disabled={!subtaskTitle.trim()} class="px-3 py-1.5 rounded-md text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 border-0 cursor-pointer font-[inherit]">Add</button>
-						<button onclick={() => { addingSubtaskFor = null; subtaskTitle = ''; }} class="px-3 py-1.5 rounded-md text-sm text-slate-500 border border-slate-300 hover:bg-slate-100 cursor-pointer font-[inherit]">✕</button>
+						<button onclick={() => { addingSubtaskFor = null; subtaskTitle = ''; }} aria-label="Cancel add subtask" class="px-3 py-1.5 rounded-md text-sm text-slate-500 border border-slate-300 hover:bg-slate-100 cursor-pointer font-[inherit]">✕</button>
 					</div>
 				{:else}
 					<button
@@ -463,7 +466,7 @@
 	{/snippet}
 
 	<!-- Active tasks -->
-	<ul class="flex flex-col gap-1 list-none">
+	<ul aria-label="Active tasks" class="flex flex-col gap-1 list-none">
 		{#each topLevelActive as task (task.id)}
 			{@render renderTask(task)}
 		{/each}
@@ -473,12 +476,13 @@
 	{#if topLevelCompleted.length > 0}
 		<button
 			class="mt-4 bg-transparent border-0 text-slate-500 text-sm cursor-pointer py-1 px-0 font-[inherit] hover:text-slate-900"
+			aria-expanded={showCompleted}
 			onclick={() => (showCompleted = !showCompleted)}
 		>
 			{showCompleted ? '▼' : '▶'} Completed ({topLevelCompleted.length})
 		</button>
 		{#if showCompleted}
-			<ul class="flex flex-col gap-1 list-none mt-2">
+			<ul aria-label="Completed tasks" class="flex flex-col gap-1 list-none mt-2">
 				{#each topLevelCompleted as task (task.id)}
 					<li class="rounded-lg">
 						<div class="group flex items-start gap-3 px-3 py-3 rounded-lg transition-colors duration-100 hover:bg-slate-50">

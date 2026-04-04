@@ -29,9 +29,9 @@
 </script>
 
 {#if tasks.length > 0}
-	<div class="mb-4 bg-emerald-50 border border-emerald-200 rounded-xl p-5 shadow-sm">
+	<div role="region" aria-label="Do it Now" class="mb-4 bg-emerald-50 border border-emerald-200 rounded-xl p-5 shadow-sm">
 		<div class="flex items-center gap-2 mb-2">
-			<span class="text-lg">⏱</span>
+			<span aria-hidden="true" class="text-lg">⏱</span>
 			<h3 class="text-base font-bold text-emerald-800">Do it Now</h3>
 			<span class="bg-emerald-200 text-emerald-700 text-xs font-semibold px-2 py-0.5 rounded-full"
 				>{tasks.length}</span
