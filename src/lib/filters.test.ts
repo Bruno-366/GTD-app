@@ -76,8 +76,12 @@ describe('isNextAction', () => {
 		expect(isNextAction(makeTask())).toBe(false);
 	});
 
-	it('returns false when task is a subtask', () => {
-		expect(isNextAction(makeTask({ context: 'work', parentId: 'parent-1' }))).toBe(false);
+	it('returns true when task is a subtask but has no children (leaf)', () => {
+		expect(isNextAction(makeTask({ context: 'work', parentId: 'parent-1' }))).toBe(true);
+	});
+
+	it('returns false when task has children (is a project/parent task)', () => {
+		expect(isNextAction(makeTask({ context: 'work', children: ['child-1'] }))).toBe(false);
 	});
 });
 

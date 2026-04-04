@@ -15,8 +15,8 @@ export const isInbox = (t: Task): boolean => {
 	return !t.context && !t.delegatedTo && !t.dueDate && !t.someday;
 };
 
-/** Top-level tasks with a context assigned */
-export const isNextAction = (t: Task): boolean => !t.completed && !!t.context && !t.parentId;
+/** Leaf tasks (no children) with a context assigned */
+export const isNextAction = (t: Task): boolean => !t.completed && !!t.context && !(t.children?.length);
 
 /** Subtask of one of the provided parent IDs */
 export const isSubtaskOf = (parentIds: Set<string>) => (t: Task): boolean =>
