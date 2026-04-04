@@ -8,7 +8,7 @@ import type { Task } from './types';
 vi.mock('$lib/db', () => ({
 	addTask: vi.fn().mockResolvedValue({}),
 	updateTask: vi.fn().mockResolvedValue({}),
-	deleteTask: vi.fn().mockResolvedValue(undefined)
+	deleteTaskAndPromoteChildren: vi.fn().mockResolvedValue(undefined)
 }));
 
 function makeTask(overrides: Partial<Task> = {}): Task {
