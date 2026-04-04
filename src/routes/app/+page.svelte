@@ -21,6 +21,10 @@
 		);
 		tasks = [...inboxFiltered, ...extraParents];
 		allTasks = all;
+	}
+
+	async function handleTasksChange() {
+		await loadTasks();
 		notifyTaskChange();
 	}
 
@@ -36,5 +40,5 @@
 	icon="📥"
 	{tasks}
 	{allTasks}
-	onTasksChange={loadTasks}
+	onTasksChange={handleTasksChange}
 />

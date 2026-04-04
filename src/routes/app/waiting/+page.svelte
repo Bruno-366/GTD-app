@@ -9,6 +9,10 @@
 
 	async function loadTasks() {
 		tasks = await getWaitingTasks();
+	}
+
+	async function handleTasksChange() {
+		await loadTasks();
 		notifyTaskChange();
 	}
 
@@ -23,5 +27,5 @@
 	title="Waiting For"
 	icon="⏳"
 	{tasks}
-	onTasksChange={loadTasks}
+	onTasksChange={handleTasksChange}
 />

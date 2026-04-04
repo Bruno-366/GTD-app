@@ -9,6 +9,10 @@
 
 	async function loadTasks() {
 		tasks = await getAllTasks();
+	}
+
+	async function handleTasksChange() {
+		await loadTasks();
 		notifyTaskChange();
 	}
 
@@ -24,6 +28,5 @@
 	icon="📁"
 	description="Projects are top-level tasks. Add subtasks to break them down into next actions."
 	{tasks}
-	allTasks={tasks}
-	onTasksChange={loadTasks}
+	onTasksChange={handleTasksChange}
 />

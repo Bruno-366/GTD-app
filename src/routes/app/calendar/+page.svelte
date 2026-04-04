@@ -10,7 +10,6 @@
 		const raw = await getTasksWithDueDate();
 		// Sort ascending by dueDate
 		tasks = raw.sort((a, b) => (a.dueDate! < b.dueDate! ? -1 : 1));
-		notifyTaskChange();
 	}
 
 	onMount(load);
@@ -33,11 +32,13 @@
 	async function handleToggle(task: Task) {
 		await updateTask({ ...task, completed: !task.completed });
 		await load();
+		notifyTaskChange();
 	}
 
 	async function handleDelete(id: string) {
 		await deleteTask(id);
 		await load();
+		notifyTaskChange();
 	}
 
 	function formatMinutes(mins: number): string {

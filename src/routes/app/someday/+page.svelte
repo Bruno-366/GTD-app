@@ -9,6 +9,10 @@
 
 	async function loadTasks() {
 		tasks = await getSomedayTasks();
+	}
+
+	async function handleTasksChange() {
+		await loadTasks();
 		notifyTaskChange();
 	}
 
@@ -24,5 +28,5 @@
 	icon="🌟"
 	{tasks}
 	addAsSomeday={true}
-	onTasksChange={loadTasks}
+	onTasksChange={handleTasksChange}
 />
