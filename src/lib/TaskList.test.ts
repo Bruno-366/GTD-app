@@ -210,7 +210,7 @@ describe('TaskList', () => {
 		render(TaskList, { props: { title: 'Inbox', icon: '📥', tasks, onTasksChange: vi.fn() } });
 
 		// The aria-label should describe the count
-		expect(document.querySelector('[aria-label="2 active tasks"]')).toBeInTheDocument();
+		expect(screen.getByLabelText(/2 active tasks/i)).toBeInTheDocument();
 	});
 
 	it('completed tasks toggle button has aria-expanded=false initially', () => {
