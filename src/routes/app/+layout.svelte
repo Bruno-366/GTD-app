@@ -2,13 +2,29 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { base } from '$app/paths';
+	import QuickWinBanner from '$lib/QuickWinBanner.svelte';
+	import { getAllTasks } from '$lib/db';
+	import { isQuickWin } from '$lib/filters';
+	import { taskRefreshTick } from '$lib/stores';
+	import type { Task } from '$lib/types';
 
 	let { children } = $props();
+	let quickWinTasks = $state<Task[]>([]);
+
+	async function loadBanner() {
+		const all = await getAllTasks();
+		quickWinTasks = all.filter(isQuickWin);
+	}
+
+	// Reload banner whenever tasks change anywhere in the app
+	$effect(() => {
+		$taskRefreshTick;
+		loadBanner();
+	});
 
 	const navItems = [
 		{ href: '/app', label: 'Inbox', icon: '📥' },
 		{ href: '/app/next', label: 'Next Actions', icon: '⚡' },
-		{ href: '/app/doitnow', label: 'Do it Now', icon: '⏱' },
 		{ href: '/app/projects', label: 'Projects', icon: '📁' },
 		{ href: '/app/waiting', label: 'Waiting For', icon: '⏳' },
 		{ href: '/app/someday', label: 'Someday', icon: '🌟' },
@@ -44,6 +60,7 @@
 		</nav>
 
 		<main class="flex-1 min-w-0">
+			<QuickWinBanner tasks={quickWinTasks} onTasksChange={loadBanner} />
 			{@render children()}
 		</main>
 	</div>

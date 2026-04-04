@@ -80,14 +80,16 @@ describe('TaskList', () => {
 		const tasks = [makeTask({ context: 'work' })];
 		render(TaskList, { props: { title: 'Next', icon: '⚡', tasks, onTasksChange: vi.fn() } });
 
-		expect(screen.getByText('#work')).toBeInTheDocument();
+		// The context appears both as a filter chip and as a task badge; assert at least one is present
+		expect(screen.getAllByText('#work').length).toBeGreaterThanOrEqual(1);
 	});
 
 	it('renders delegatedTo badge for a waiting task', () => {
 		const tasks = [makeTask({ delegatedTo: 'alice' })];
 		render(TaskList, { props: { title: 'Waiting', icon: '⏳', tasks, onTasksChange: vi.fn() } });
 
-		expect(screen.getByText('@alice')).toBeInTheDocument();
+		// The assignee appears both as a filter chip and as a task badge; assert at least one is present
+		expect(screen.getAllByText('@alice').length).toBeGreaterThanOrEqual(1);
 	});
 
 	it('shows the "Add task" button when no form is open', () => {

@@ -50,6 +50,28 @@
 
 	let showCompleted = $state(false);
 
+	/** Unique non-empty contexts present in active tasks — used to show context filter chips */
+	const uniqueContexts = $derived(
+		[...new Set(tasks.filter((t) => !t.completed && t.context).map((t) => t.context!))]
+			.sort()
+	);
+
+	/** Unique non-empty assignees present in active tasks — used to show assignee filter chips */
+	const uniqueAssignees = $derived(
+		[...new Set(tasks.filter((t) => !t.completed && t.delegatedTo).map((t) => t.delegatedTo!))]
+			.sort()
+	);
+
+	let filterContext = $state('');
+	let filterAssignee = $state('');
+
+	// Reset filters whenever the tasks list changes (e.g. navigating to a different view)
+	$effect(() => {
+		tasks; // track
+		filterContext = '';
+		filterAssignee = '';
+	});
+
 	/** Map from task id → Task for O(1) child lookups */
 	const taskById = $derived(new Map((allTasks ?? tasks).map((t) => [t.id, t])));
 
@@ -58,7 +80,15 @@
 	// A task is a "root" in this view if it has no parentId, OR if its parent is not visible
 	// in the current task set. This handles filtered views (e.g. Waiting For) that include
 	// subtasks whose parents don't match the filter.
-	const topLevelActive = $derived(tasks.filter((t) => !t.completed && (!t.parentId || !taskIdsInView.has(t.parentId))));
+	const topLevelActive = $derived(
+		tasks.filter(
+			(t) =>
+				!t.completed &&
+				(!t.parentId || !taskIdsInView.has(t.parentId)) &&
+				(!filterContext || t.context === filterContext) &&
+				(!filterAssignee || t.delegatedTo === filterAssignee)
+		)
+	);
 	const topLevelCompleted = $derived(tasks.filter((t) => t.completed && (!t.parentId || !taskIdsInView.has(t.parentId))));
 
 	/** Candidate parent tasks for the edit form: exclude the task being edited and all its descendants */
@@ -209,6 +239,38 @@
 
 	{#if description}
 		<p class="text-xs text-slate-400 mb-4">{description}</p>
+	{/if}
+
+	<!-- Context / assignee filter chips -->
+	{#if uniqueContexts.length >= 1 || uniqueAssignees.length >= 1}
+		<div class="flex flex-wrap items-center gap-2 mb-4">
+			{#if uniqueContexts.length >= 1}
+				<span class="text-xs text-slate-500 font-medium">Context:</span>
+				<button
+					onclick={() => (filterContext = '')}
+					class="text-xs px-2.5 py-1 rounded-full border transition-colors cursor-pointer font-[inherit] {filterContext === '' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-300 hover:border-emerald-400 hover:text-emerald-700'}"
+				>All</button>
+				{#each uniqueContexts as ctx}
+					<button
+						onclick={() => (filterContext = filterContext === ctx ? '' : ctx)}
+						class="text-xs px-2.5 py-1 rounded-full border transition-colors cursor-pointer font-[inherit] {filterContext === ctx ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'}"
+					>#{ctx}</button>
+				{/each}
+			{/if}
+			{#if uniqueAssignees.length >= 1}
+				<span class="text-xs text-slate-500 font-medium {uniqueContexts.length >= 1 ? 'ml-2' : ''}">Assignee:</span>
+				<button
+					onclick={() => (filterAssignee = '')}
+					class="text-xs px-2.5 py-1 rounded-full border transition-colors cursor-pointer font-[inherit] {filterAssignee === '' ? 'bg-sky-600 text-white border-sky-600' : 'bg-white text-slate-600 border-slate-300 hover:border-sky-400 hover:text-sky-700'}"
+				>All</button>
+				{#each uniqueAssignees as person}
+					<button
+						onclick={() => (filterAssignee = filterAssignee === person ? '' : person)}
+						class="text-xs px-2.5 py-1 rounded-full border transition-colors cursor-pointer font-[inherit] {filterAssignee === person ? 'bg-sky-600 text-white border-sky-600' : 'bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100'}"
+					>@{person}</button>
+				{/each}
+			{/if}
+		</div>
 	{/if}
 
 	<!-- Add task form -->

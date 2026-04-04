@@ -2,12 +2,14 @@
 	import { onMount } from 'svelte';
 	import TaskList from '$lib/TaskList.svelte';
 	import { getAllTasks } from '$lib/db';
+	import { notifyTaskChange } from '$lib/stores';
 	import type { Task } from '$lib/types';
 
 	let tasks = $state<Task[]>([]);
 
 	async function loadTasks() {
 		tasks = await getAllTasks();
+		notifyTaskChange();
 	}
 
 	onMount(loadTasks);
