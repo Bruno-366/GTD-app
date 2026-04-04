@@ -23,7 +23,19 @@
 		node.focus();
 	}
 
-	// ── new task form ─────────────────────────────────────────────────────────
+	// ── Form state machine ────────────────────────────────────────────────────
+	// Exactly one form can be open at a time. Collapsing showForm / editingTask /
+	// addingSubtaskFor into a single discriminated union makes invalid states
+	// (e.g. both the add and edit form open simultaneously) unrepresentable.
+	type FormState =
+		| { mode: 'viewing' }
+		| { mode: 'adding' }
+		| { mode: 'editing'; task: Task }
+		| { mode: 'addingSubtask'; parentTaskId: string };
+
+	let formState = $state<FormState>({ mode: 'viewing' });
+
+	// ── new task form fields ───────────────────────────────────────────────────
 	let newTitle = $state('');
 	let newNotes = $state('');
 	let newDueDate = $state('');
@@ -31,10 +43,8 @@
 	// newSomeday mirrors addAsSomeday at form-open time; $effect syncs when prop changes
 	let newSomeday = $state(false);
 	$effect(() => { newSomeday = addAsSomeday; });
-	let showForm = $state(false);
 
-	// ── edit form ─────────────────────────────────────────────────────────────
-	let editingTask = $state<Task | null>(null);
+	// ── edit form fields ───────────────────────────────────────────────────────
 	let editTitle = $state('');
 	let editNotes = $state('');
 	let editDueDate = $state('');
@@ -44,8 +54,7 @@
 	let editSomeday = $state(false);
 	let editParentId = $state('');
 
-	// ── subtask form ──────────────────────────────────────────────────────────
-	let addingSubtaskFor = $state<string | null>(null);
+	// ── subtask form fields ────────────────────────────────────────────────────
 	let subtaskTitle = $state('');
 
 	let showCompleted = $state(false);
@@ -93,9 +102,9 @@
 
 	/** Candidate parent tasks for the edit form: exclude the task being edited and all its descendants */
 	const potentialParents = $derived((() => {
-		if (!editingTask) return [];
-		const descendants = getDescendantIds(editingTask, taskById);
-		const editing = editingTask;
+		if (formState.mode !== 'editing') return [];
+		const editing = formState.task;
+		const descendants = getDescendantIds(editing, taskById);
 		return (allTasks ?? tasks).filter((t) => t.id !== editing.id && !descendants.has(t.id));
 	})());
 
@@ -127,7 +136,7 @@
 		newDueDate = '';
 		newEstimated = '';
 		newSomeday = addAsSomeday;
-		showForm = false;
+		formState = { mode: 'viewing' };
 		onTasksChange();
 	}
 
@@ -137,7 +146,7 @@
 		const { cleanTitle, context, delegatedTo, estimatedMinutes } = parseTaskTitle(trimmed);
 		await addTask(cleanTitle, '', { parentId: parentTask.id, context, delegatedTo, estimatedMinutes });
 		subtaskTitle = '';
-		addingSubtaskFor = null;
+		formState = { mode: 'viewing' };
 		onTasksChange();
 	}
 
@@ -153,7 +162,7 @@
 	}
 
 	function startEdit(task: Task) {
-		editingTask = task;
+		formState = { mode: 'editing', task };
 		editTitle = task.title;
 		editNotes = task.notes;
 		editDueDate = task.dueDate ?? '';
@@ -165,9 +174,10 @@
 	}
 
 	async function handleEditSave() {
-		if (!editingTask || !editTitle.trim()) return;
+		if (formState.mode !== 'editing' || !editTitle.trim()) return;
+		const task = formState.task;
 		await updateTask({
-			...editingTask,
+			...task,
 			title: editTitle.trim(),
 			notes: editNotes.trim(),
 			dueDate: editDueDate || undefined,
@@ -177,12 +187,12 @@
 			someday: editSomeday || undefined,
 			parentId: editParentId || undefined
 		});
-		editingTask = null;
+		formState = { mode: 'viewing' };
 		onTasksChange();
 	}
 
 	function cancelEdit() {
-		editingTask = null;
+		formState = { mode: 'viewing' };
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -190,7 +200,7 @@
 			e.preventDefault();
 			handleAdd();
 		}
-		if (e.key === 'Escape') showForm = false;
+		if (e.key === 'Escape') formState = { mode: 'viewing' };
 	}
 
 	function handleEditKeydown(e: KeyboardEvent) {
@@ -203,7 +213,7 @@
 			handleAddSubtask(parentTask);
 		}
 		if (e.key === 'Escape') {
-			addingSubtaskFor = null;
+			formState = { mode: 'viewing' };
 			subtaskTitle = '';
 		}
 	}
@@ -278,7 +288,7 @@
 	{/if}
 
 	<!-- Add task form -->
-	{#if showForm}
+	{#if formState.mode === 'adding'}
 		<div class="flex flex-col gap-2 mb-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
 			<input
 				type="text"
@@ -334,11 +344,11 @@
 
 			<div class="flex gap-2">
 				<button onclick={handleAdd} disabled={!newTitle.trim()} class={btnPrimary}>Add task</button>
-				<button onclick={() => (showForm = false)} class={btnSecondary}>Cancel</button>
+				<button onclick={() => (formState = { mode: 'viewing' })} class={btnSecondary}>Cancel</button>
 			</div>
 		</div>
 	{:else}
-		<button onclick={() => (showForm = true)} class="flex items-center gap-2 px-3 py-2 border-2 border-dashed border-slate-300 rounded-md bg-transparent text-slate-400 text-sm cursor-pointer w-full transition-all duration-150 font-[inherit] mb-4 hover:border-indigo-500 hover:text-indigo-600 hover:bg-violet-50">
+		<button onclick={() => (formState = { mode: 'adding' })} class="flex items-center gap-2 px-3 py-2 border-2 border-dashed border-slate-300 rounded-md bg-transparent text-slate-400 text-sm cursor-pointer w-full transition-all duration-150 font-[inherit] mb-4 hover:border-indigo-500 hover:text-indigo-600 hover:bg-violet-50">
 			<span>+</span> Add task
 		</button>
 	{/if}
@@ -346,7 +356,7 @@
 	<!-- Recursive task renderer: renders a task row, its children (any depth), and the +Add subtask control -->
 	{#snippet renderTask(task: Task)}
 		<li class="rounded-lg">
-			{#if editingTask?.id === task.id}
+			{#if formState.mode === 'editing' && formState.task.id === task.id}
 				<!-- Unified edit form — same fields for tasks at any depth -->
 				<div class="flex flex-col gap-2 mb-2 p-4 bg-slate-50 rounded-lg border border-slate-200">
 					<input type="text" aria-label="Edit task title" bind:value={editTitle} onkeydown={handleEditKeydown} class={inputCls} />
@@ -441,7 +451,7 @@
 				{/if}
 
 				<!-- Add subtask inline -->
-				{#if addingSubtaskFor === task.id}
+				{#if formState.mode === 'addingSubtask' && formState.parentTaskId === task.id}
 					<div class="ml-8 flex gap-2 mb-2 items-center">
 						<input
 							type="text"
@@ -453,12 +463,12 @@
 							use:focusOnMount
 						/>
 						<button onclick={() => handleAddSubtask(task)} disabled={!subtaskTitle.trim()} class="px-3 py-1.5 rounded-md text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 border-0 cursor-pointer font-[inherit]">Add</button>
-						<button onclick={() => { addingSubtaskFor = null; subtaskTitle = ''; }} aria-label="Cancel add subtask" class="px-3 py-1.5 rounded-md text-sm text-slate-500 border border-slate-300 hover:bg-slate-100 cursor-pointer font-[inherit]">✕</button>
+						<button onclick={() => { formState = { mode: 'viewing' }; subtaskTitle = ''; }} aria-label="Cancel add subtask" class="px-3 py-1.5 rounded-md text-sm text-slate-500 border border-slate-300 hover:bg-slate-100 cursor-pointer font-[inherit]">✕</button>
 					</div>
 				{:else}
 					<button
 						class="ml-8 mb-1 text-xs text-slate-400 hover:text-indigo-600 cursor-pointer bg-transparent border-0 font-[inherit] px-3 py-1"
-						onclick={() => { addingSubtaskFor = task.id; subtaskTitle = ''; }}
+						onclick={() => { formState = { mode: 'addingSubtask', parentTaskId: task.id }; subtaskTitle = ''; }}
 					>+ Add subtask</button>
 				{/if}
 			{/if}
