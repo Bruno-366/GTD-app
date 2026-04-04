@@ -69,9 +69,11 @@ describe('TaskList', () => {
 	});
 
 	it('does not show the description when omitted', () => {
-		render(TaskList, { props: { title: 'Inbox', icon: '📥', tasks: [], onTasksChange: vi.fn() } });
+		const { container } = render(TaskList, {
+			props: { title: 'Inbox', icon: '📥', tasks: [], onTasksChange: vi.fn() }
+		});
 
-		expect(screen.queryByRole('paragraph')).not.toBeInTheDocument();
+		expect(container.querySelector('p')).not.toBeInTheDocument();
 	});
 
 	it('renders context badge for a task with a context', () => {
